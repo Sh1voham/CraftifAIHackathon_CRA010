@@ -147,6 +147,7 @@ class IoCfg:
     poll_s: float = 0.05
     file_settle_s: float = 1.0  # give up on an unparseable per-frame file after this
     video_fps_fallback: float = 30.0  # only for writing overlay video when the source reports no fps
+    status_period_s: float = 1.0  # demo: one status line per this many seconds of frame time
     default_fps: float = 30.0  # only for inputs with frame numbers instead of timestamps (--fps)
     ts_probe_frames: int = 10  # frames inspected to infer the timestamp unit and coordinate mode
     frame_dt_min_s: float = 0.005  # plausible frame interval range used to infer the timestamp unit

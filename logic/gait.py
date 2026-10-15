@@ -85,6 +85,19 @@ class GaitSummary:
     walk_time_s: float = 0.0
     windows: list[tuple[float, float]] = field(default_factory=list)
 
+    # Names used in the prompt-2 spec (same values as the fields above).
+    @property
+    def speed_mps(self) -> float | None:
+        return self.walk_speed_mps
+
+    @property
+    def cv_pct(self) -> float | None:
+        return self.step_cv_pct
+
+    @property
+    def si_pct(self) -> float | None:
+        return self.symmetry_pct
+
 
 # ---------------------------------------------------------------- helpers
 

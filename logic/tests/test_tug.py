@@ -46,6 +46,9 @@ def test_tug_timings_match_truth(tug_results) -> None:
         assert r.t_sts == pytest.approx(lab["t_sts"], abs=0.2)
         turn = dict((p[0], (p[1], p[2])) for p in r.phases[:5])["TURN"]
         assert turn[0] <= lab["t_turn_mid"] <= turn[1]
+        true = lab["phases_true"]
+        for name, t0, t1 in r.phases[1:6]:
+            assert abs(t0 - true[name][0]) < 0.8 and abs(t1 - true[name][1]) < 0.8, name
 
 
 def _synthetic(ys, xs):

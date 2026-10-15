@@ -139,11 +139,12 @@ def summary_payload(ts: str, gait: Any, tug: Any, risk: RiskResult, drift: Drift
         "risk_score": r(risk.score, 2),
         "band": risk.band,
         "calibrated": gait.calibrated,
+        "drift_alert": None if drift is None else drift.drift_alert,
         "n_steps": gait.n_steps,
         "missing": risk.missing,
         "notes": list(gait.reasons) + ([tug.reason] if tug is not None and not tug.valid and tug.reason else []),
     }
     if drift is not None:
-        out.update(baseline_mps=r(drift.baseline, 2), drift_alert=drift.drift_alert, drift_reasons=drift.reasons)
+        out.update(baseline_mps=r(drift.baseline, 2), drift_reasons=drift.reasons)
     out.update(extra)
     return out

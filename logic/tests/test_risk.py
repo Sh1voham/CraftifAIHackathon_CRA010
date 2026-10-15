@@ -69,5 +69,7 @@ def test_summary_payload_schema() -> None:
     for k in ("ts", "walk_speed_mps", "cadence_spm", "step_cv_pct", "symmetry_pct", "tug_s", "risk_score", "band"):
         assert k in p
     assert p["tug_s"] == 11.0 and p["band"] == "MODERATE" and p["person"] == "alice" and p["calibrated"] is False
+    assert "drift_alert" in p and p["drift_alert"] is None
+    assert (g.speed_mps, g.cv_pct, g.si_pct) == (0.8, 6.0, 13.8)
     bad_tug = summary_payload("x", g, TugResult(False, "turn not found"), r)
     assert bad_tug["tug_s"] is None and "turn not found" in bad_tug["notes"]

@@ -109,6 +109,7 @@
     "poll_s": 0.05,
     "file_settle_s": 1.0,
     "video_fps_fallback": 30.0,
+    "status_period_s": 1.0,
     "default_fps": 30.0,
     "ts_probe_frames": 10,
     "frame_dt_min_s": 0.005,

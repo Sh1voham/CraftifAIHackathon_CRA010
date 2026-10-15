@@ -606,9 +606,14 @@ def make_tug(seed: int, px_per_m: float = 160.0, speed: float | None = None) -> 
     t_a = next(tc for tc, s in lo if s > 0)
     t_b = next(tc for tc, s in hi if s > 0)
     t_d = [tc for tc, s in lo if s < 0][-1]
+    t_c = [tc for tc, s in hi if s < 0][-1]
+    turn0, turn1 = T2 + out_s, T2 + out_s + turn_s
+    phases = {"SIT": [0.0, t_a], "STAND_UP": [t_a, t_b], "WALK_OUT": [t_b, turn0], "TURN": [turn0, turn1],
+              "WALK_BACK": [turn1, t_c], "SIT_DOWN": [t_c, t_d], "SIT_END": [t_d, duration]}
     label = {"class": "tug", "variant": "standard", "is_fall": False, "expected_event": None, "t_fall_start": None,
              "speed_mps": v, "px_per_m": px_per_m, "tug_s": t_d - t_a, "t_sts": t_b - t_a,
-             "t_standup_start": t0 + t_a, "t_turn_mid": t0 + T2 + out_s + 0.5 * turn_s}
+             "t_standup_start": t0 + t_a, "t_turn_mid": t0 + T2 + out_s + 0.5 * turn_s,
+             "phases_true": {k: [round(t0 + a, 3), round(t0 + b, 3)] for k, (a, b) in phases.items()}}
     return Clip(name=f"tug_{seed}", frames=frames, label=label)
 
 
