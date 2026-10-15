@@ -12,7 +12,9 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+import numpy as np
 
 from logic.config import Config, load_config
 from logic.fall import ALERT_KINDS, Event, FallDetector
@@ -20,32 +22,64 @@ from logic.incidents import IncidentLog, WallClock, event_record
 from logic.io import Frame, read_keypoints
 from logic.mqtt_out import MqttPublisher
 from logic.pipeline import FramePipeline, Step
+from logic.privacy import save_blurred
 
 logger = logging.getLogger("safestride")
 
 
+class VideoFrames:
+    """Random access to a video file by time since its first frame."""
+
+    def __init__(self, path: str | Path) -> None:
+        import cv2
+
+        self._cv2 = cv2
+        self.cap = cv2.VideoCapture(str(path))
+        if not self.cap.isOpened():
+            raise OSError(f"cannot open video {path}")
+
+    def at(self, t_rel: float) -> np.ndarray | None:
+        """Frame at ``t_rel`` seconds, or None past the end."""
+        self.cap.set(self._cv2.CAP_PROP_POS_MSEC, max(t_rel, 0.0) * 1000.0)
+        ok, img = self.cap.read()
+        return img if ok else None
+
+
 class Runner:
-    """Drives pipeline + fall detector and fans events out to log, MQTT and stdout."""
+    """Drives pipeline + fall detector and fans events out to log, MQTT and stdout.
+
+    ``frame_source(t_rel)`` (optional) returns the camera image at ``t_rel``
+    seconds after the first keypoint frame; alert frames are then saved, blurred,
+    under ``blur_dir``. Without it only keypoints are kept.
+    """
 
     def __init__(self, cfg: Config, clock: WallClock, camera: str = "builtin0", model: str = "pose-fp16",
                  incidents: IncidentLog | None = None, publisher: MqttPublisher | None = None,
-                 out: Any = None) -> None:
+                 out: Any = None, frame_source: Callable[[float], np.ndarray | None] | None = None,
+                 blur_dir: str | Path = "blurred") -> None:
         self.cfg = cfg
         self.clock = clock
         self.camera, self.model = camera, model
         self.incidents = incidents
         self.publisher = publisher
         self.out = out
+        self.frame_source = frame_source
+        self.blur_dir = Path(blur_dir)
         self.pipe = FramePipeline(cfg)
         self.det = FallDetector(cfg.fall)
         self.frames = 0
         self.last_t: float | None = None
         self.records: list[dict[str, Any]] = []
+        self._t_first: float | None = None
+        self._last_persons: list[Any] = []
 
     def process(self, frame: Frame) -> list[Event]:
         """Feed one input frame."""
         self.frames += 1
         self.last_t = frame.t
+        if self._t_first is None:
+            self._t_first = frame.t
+        self._last_persons = list(frame.persons)
         self.clock.observe(frame.t)
         events: list[Event] = []
         for step in self.pipe.push(frame):
@@ -65,11 +99,29 @@ class Runner:
         if self.det.state is not before:
             logger.info("t=%.3f state %s -> %s", step.features.t, before.value, self.det.state.value)
         for ev in events:
-            self._emit(ev)
+            self._emit(ev, step)
         return events
 
-    def _emit(self, ev: Event) -> None:
-        rec = event_record(ev, self.clock.iso(ev.ts_s), self.camera, self.model, None)
+    def _save_frame(self, ev: Event, ts: str, step: Step) -> str | None:
+        if self.frame_source is None or ev.kind not in ALERT_KINDS:
+            return None
+        img = self.frame_source(ev.ts_s - (self._t_first or ev.ts_s))
+        if img is None:
+            logger.warning("t=%.3f: no video frame available to save", ev.ts_s)
+            return None
+        stamp = ts[:19].replace("-", "").replace(":", "").replace("T", "_")
+        path = self.blur_dir / f"{stamp}_{ev.kind.lower()}.jpg"
+        save_blurred(img, path, [step.clean.kp, *self._last_persons], self.cfg.privacy, self.cfg.filters.c_min)
+        return path.as_posix()
+
+    def _emit(self, ev: Event, step: Step) -> None:
+        ts = self.clock.iso(ev.ts_s)
+        try:
+            saved = self._save_frame(ev, ts, step)
+        except Exception:  # noqa: BLE001 - evidence saving must not block the alert
+            logger.exception("t=%.3f: could not save blurred frame", ev.ts_s)
+            saved = None
+        rec = event_record(ev, ts, self.camera, self.model, saved)
         self.records.append(rec)
         if self.incidents is not None:
             self.incidents.append(rec)
@@ -108,6 +160,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--model", default="pose-fp16")
     ap.add_argument("--config", default=None, help="config JSON (default logic/config.json)")
     ap.add_argument("--incidents", default="incidents.jsonl")
+    ap.add_argument("--video", default=None,
+                    help="video file aligned with the keypoints; alert frames are saved blurred")
+    ap.add_argument("--blur-dir", default="blurred")
     ap.add_argument("--realtime", action="store_true", help="replay at the original timestamps")
     ap.add_argument("--start-wallclock", default=None,
                     help="ISO time of the first frame; makes replay output reproducible")
@@ -139,7 +194,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         logger.info("MQTT disabled (no --mqtt)")
     incidents = IncidentLog(args.incidents)
-    runner = Runner(cfg, clock, args.camera, args.model, incidents, publisher, out=sys.stdout)
+    frame_source = VideoFrames(args.video).at if args.video else None
+    runner = Runner(cfg, clock, args.camera, args.model, incidents, publisher, out=sys.stdout,
+                    frame_source=frame_source, blur_dir=args.blur_dir)
 
     wall0 = time.monotonic()
     t0: float | None = None

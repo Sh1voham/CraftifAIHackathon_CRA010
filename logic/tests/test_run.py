@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import cv2
+import numpy as np
 import pytest
 
 from logic.config import Config, MqttCfg
@@ -14,7 +16,7 @@ from logic.fall import Event
 from logic.incidents import IncidentLog, WallClock, event_record
 from logic.io import write_jsonl
 from logic.mqtt_out import MqttPublisher
-from logic.run import Runner
+from logic.run import Runner, VideoFrames
 from logic.tests.fixtures import scripted_fall, scripted_sit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -148,3 +150,31 @@ def test_cli_survives_bad_input_lines(tmp_path, bad) -> None:
     clip.write_text("".join(lines[:10] + [bad] + lines[10:]))
     res = _cli(["--input", str(clip), "--incidents", str(tmp_path / "i.jsonl"), "--start-wallclock", START])
     assert res.returncode == 0 and b"FALL_CONFIRMED" in res.stdout
+
+
+def test_alert_frame_is_saved_blurred(tmp_path) -> None:
+    rng = np.random.default_rng(1)
+    noise = rng.integers(0, 256, size=(1080, 800, 3), dtype=np.uint8)
+    asked = []
+
+    def source(t_rel):
+        asked.append(t_rel)
+        return noise
+
+    r = _replay(scripted_fall(), frame_source=source, blur_dir=tmp_path / "blurred")
+    rec = r.records[0]
+    assert rec["frame_saved"].endswith("_fall_confirmed.jpg") and asked == [pytest.approx(rec["t_s"] - 50.0, abs=1e-3)]  # t_s is rounded
+    saved = cv2.imread(rec["frame_saved"])
+    hip_region = (slice(900, 960), slice(300, 600))  # where the person lies
+    assert saved[hip_region].std() < 0.3 * noise[hip_region].std()
+
+
+def test_video_frames_random_access(tmp_path) -> None:
+    path = str(tmp_path / "v.avi")
+    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 10.0, (64, 48))
+    for i in range(20):
+        vw.write(np.full((48, 64, 3), i * 10, dtype=np.uint8))
+    vw.release()
+    vf = VideoFrames(path)
+    assert abs(int(vf.at(1.0).mean()) - 100) <= 3
+    assert vf.at(100.0) is None
