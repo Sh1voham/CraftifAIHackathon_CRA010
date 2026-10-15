@@ -104,6 +104,31 @@ python -m logic.eval --data data/synth --bench              # frames per second 
 - `expected_event` is `FALL_CONFIRMED` (fast fall), `PROLONGED_DOWN` (slow lowering, stays down) or `null`.
 - Split, grid and match window live under `eval` in `config.json`.
 
+## Overlay (demo view)
+
+```bash
+python -m logic.overlay --video clip.mp4 --input clip.jsonl                     # replay in a window
+pipegen-app | python -m logic.overlay --camera 0 --input -                      # live camera + live keypoints
+python -m logic.overlay --video clip.mp4 --input clip.jsonl --headless --save demo.mp4
+```
+
+The window shows the skeleton coloured by fall state, torso angle, hip speed, risk band, and the last alert as a banner (press `q` to quit). The overlay runs the same decision layer, so it also writes `incidents.jsonl` and, with `--mqtt`, publishes alerts. `--save` writes a video with every person **blurred** before the skeleton is drawn. A live camera may already be in use by the PipeGen app; in that case use the PipeGen display, or replay a recording.
+
+## FP16 vs INT8 comparison (Edge Optimization bonus)
+
+Record the same clips with both engines (e.g. `--record` in `run.py`), then:
+
+```bash
+python -m logic.compare_precision --a runs/fp16/ --b runs/int8/ --labels runs/labels.json --out precision.md
+```
+
+The report has:
+- the mean keypoint error normalised by L_ref, overall and per keypoint;
+- the share of keypoints whose confidence drops by more than 0.2;
+- fall alerts per run, and caught/N when labels are given.
+
+Latency, FPS and power come from PipeGen's speed reports.
+
 ## Data contract
 
 Replay format, one frame per line, pixels, y pointing down, COCO-17 names:

@@ -113,6 +113,16 @@ recordings take priority.
 2. **`CleanFrame.raw`** (`filters.py`): the repaired but unsmoothed keypoints. Gait uses them for ankles because the One Euro filter's speed-dependent lag shifted left- and right-led step peaks differently. On a noise-free asymmetric walk, SI read 8.4 instead of 13.95. The fall path still uses the smoothed keypoints.
 3. **Synthetic walking model** (`synth.py`): knee flexion now goes as cos³ with compensating thigh flexion, and the gait phase runs at the mean rate within ±0.6 rad of each step peak. The old model put spurious separation peaks at mid-swing and placed the left/right rate change exactly at the peaks, which made the "true" step times ill-defined.
 
+## Tier 3 status: done
+- **`overlay.py`:** the OpenCV view (skeleton coloured by fall state, torso angle, hip speed, risk band, last-alert banner) runs the full decision layer. It works on a video file plus JSONL, aligning the first keypoint frame with the video start, and on a live camera index with keypoints from any `read_keypoints` source in a background thread. `--save` writes the overlay video with every person blurred first; a test checks the saved video and the blurred evidence frame. The window itself is not tested here (headless runs only). On the demo laptop the PipeGen app probably owns the camera.
+- **`compare_precision.py`:** aligns two runs by timestamp (nearest within half the median frame interval) and reports, as Markdown:
+  - normalised keypoint error, overall and per keypoint;
+  - the confidence-drop (> 0.2) fraction;
+  - alerts and labelled falls caught per run.
+
+  It is tested on a synthetic perturbation with known error (σ = 0.02 L gives a mean error of 0.025 L, within 15 %). It needs real FP16 and INT8 recordings of the same clips; it cannot use the same live run.
+- **Other changes:** `privacy.blur_people` was factored out of `save_blurred` for reuse by the overlay (behaviour unchanged). `pytest` now gives 137 passed.
+
 ## Not done yet
-- Tier 3 (overlay, precision comparison): see below when added.
-- No real recordings evaluated yet.
+- No real recordings evaluated yet. Everything above is synthetic.
+- The live overlay window and a real MQTT broker were not exercised: no display test and no Mosquitto on this Windows dev machine. MQTT was tested with a fake client and an unreachable broker only.
