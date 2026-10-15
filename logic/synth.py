@@ -434,7 +434,7 @@ def make_clip(kind: str, variant: str, seed: int, name: str) -> Clip:
             duration = t_start + descend + stay + up_s + rng.uniform(6.5, 8.0)
         label.update(is_fall=True, expected_event="FALL_CONFIRMED", t_fall_start=t0 + t_start,
                      descend_s=descend, drop_Ls=drop_L)
-    elif kind == "lie_down_slow":
+    elif kind in ("lie_slow_stay", "lie_slow_recover"):
         t_start = rng.uniform(3.0, 6.0)
         D = rng.uniform(3.5, 4.5)
         down = _down_pose(body, rng, x, facing, "forward")
@@ -444,11 +444,11 @@ def make_clip(kind: str, variant: str, seed: int, name: str) -> Clip:
                     armL=80.0, armR=80.0, facing=facing)
         lower = keyframed([(0.0, stand(t_start)), (0.45 * D, kneel), (0.75 * D, quad), (D, down)])
         fn = then(stand, t_start, lower)
-        if variant == "stay":
+        if kind == "lie_slow_stay":
             duration = t_start + D + rng.uniform(12.0, 15.0)
             label.update(is_fall=True, expected_event="PROLONGED_DOWN", t_fall_start=t0 + t_start)
         else:
-            lie = rng.uniform(4.0, 6.0)
+            lie = rng.uniform(3.5, 4.5)
             up_s = rng.uniform(2.5, 3.5)
             fn = _get_up(fn, t_start + D + lie, body, x, facing, "side", up_s, rng)
             duration = t_start + D + lie + up_s + 4.0
@@ -618,9 +618,9 @@ CLASS_MIX: list[tuple[str, str, float]] = [
     ("fall", "forward_stay", 0.075), ("fall", "forward_recover", 0.075),
     ("fall", "backward_stay", 0.075), ("fall", "backward_recover", 0.075),
     ("fall", "sideways_stay", 0.075), ("fall", "sideways_recover", 0.075),
-    ("lie_down_slow", "stay", 0.05),
+    ("lie_slow_stay", "slow", 0.05),
     ("standing", "quiet", 0.05), ("walk", "straight", 0.05), ("walk", "turn", 0.03),
-    ("sit_fast", "chair", 0.10), ("bend", "pickup", 0.09), ("lie_down_slow", "brief", 0.05),
+    ("sit_fast", "chair", 0.10), ("bend", "pickup", 0.09), ("lie_slow_recover", "slow", 0.05),
     ("lie_quick_recover", "quick", 0.08), ("leave_frame", "walk_out", 0.05),
 ]
 

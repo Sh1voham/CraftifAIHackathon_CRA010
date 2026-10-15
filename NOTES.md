@@ -75,7 +75,7 @@ recordings take priority.
 - **Views:** side view for most clips; frontal view for sideways falls.
 - **Timing:** 30 fps with ±3 ms jitter, 2 % dropped frames plus rare 2–3-frame bursts, and a random t offset (clips never start at 0).
 - **Keypoint noise:** σ = 0.01 L, ~3 % dropouts in 1–3-frame bursts (written as `[0,0,0]`), confidences U(0.5, 0.95), keypoints outside the image removed, person dropped when fewer than 5 keypoints are visible. bbox is present in about half the clips; a smaller bystander appears in ~10 %.
-- **Mix (n=200):** 90 fast falls (forward/backward/sideways × stay/recover, mean hip speed 2–3 L/s, phi 80–90°), 10 slow-lowering-stay (positive, PROLONGED_DOWN), and 100 negatives: standing, walk (+turn), sit_fast, bend, lie_down_slow/brief, lie_quick_recover, leave_frame.
+- **Mix (n=200):** 90 fast falls (forward/backward/sideways × stay/recover, mean hip speed 2–3 L/s, phi 80–90°), 10 slow-lowering-stay (positive, PROLONGED_DOWN), and 100 negatives: standing, walk (+turn), sit_fast, bend, lie_slow_recover, lie_quick_recover, leave_frame.
 
 ## Known limitations
 - Everything is validated only on synthetic stick figures. There is no occlusion model, no clothing or furniture, no camera perspective (one fixed px/m), no falls while walking, and no falls toward or away from the camera.

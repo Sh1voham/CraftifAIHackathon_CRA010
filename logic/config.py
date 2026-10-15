@@ -62,7 +62,8 @@ class FallCfg:
     H_LOW: float = 0.5
     T_HOLD: float = 3.0
     PHI_RECOVER: float = 30.0
-    T_PROLONGED: float = 10.0
+    prolonged_hold_s: float = 10.0  # slow path: lying this long without a fast drop
+    prolonged_requires_h: bool = False  # True: slow path only when the hip height is known
     recover_hold_s: float = 2.0
     confirmed_recover_hold_s: float = 5.0
     falling_timeout_s: float = 1.5
@@ -183,6 +184,11 @@ class EvalCfg:
     grid_PHI_DOWN: tuple[float, ...] = (50.0, 55.0, 60.0, 65.0, 70.0)
     grid_H_LOW: tuple[float, ...] = (0.3, 0.4, 0.5, 0.7)
     grid_T_HOLD: tuple[float, ...] = (2.5, 3.0, 3.5)
+    real_grid_V_DROP: tuple[float, ...] = (0.8, 1.2, 1.6)  # coarse grid for few real clips
+    real_grid_PHI_DOWN: tuple[float, ...] = (50.0, 60.0, 70.0)
+    real_grid_H_LOW: tuple[float, ...] = (0.3, 0.5, 0.7)
+    real_grid_T_HOLD: tuple[float, ...] = (3.0,)
+    real_min_clips_to_write: int = 10  # never write config.tuned.json from fewer real clips
     precision_align_frac: float = 0.5  # align frames within this fraction of the median frame interval
     precision_conf_drop: float = 0.2  # confidence drop counted by compare_precision
 

@@ -122,7 +122,7 @@ def test_lost_person_beyond_grace_resets() -> None:
     s = Script().stand(1.0).drop().lie(2.0).run(2.2, lost=True)
     assert s.det.state is State.STANDING
     s.lie(5.0)
-    assert s.events == []  # back in STANDING: no fast drop, slow path needs T_PROLONGED
+    assert s.events == []  # back in STANDING: no fast drop, slow path needs prolonged_hold_s
     confirmed = Script().stand(1.0).drop().lie(3.5).run(2.2, lost=True)
     assert confirmed.det.state is State.STANDING  # also resets FALL_CONFIRMED
 
@@ -154,17 +154,30 @@ def test_prolonged_down_after_slow_lowering() -> None:
     (ev,) = s.events
     assert ev.kind == "PROLONGED_DOWN" and ev.ts_s - t_lying == pytest.approx(10.0, abs=DT + 1e-6)
     assert ev.hip_drop_speed_Lps == pytest.approx(0.4)
-    s.stand(5.1)
+    s.stand(1.9)
+    assert s.kinds() == ["PROLONGED_DOWN"]
+    s.stand(0.2)  # recover_hold_s = 2 s for the slow path
     assert s.kinds() == ["PROLONGED_DOWN", "RECOVERED"] and s.det.state is State.STANDING
 
 
-def test_prolonged_down_not_for_brief_lying_or_unknown_h() -> None:
+def test_prolonged_down_not_for_brief_lying_or_bed() -> None:
     brief = Script().stand(1.0).run(3.0, phi=40.0, v=0.4, h=1.0).lie(5.0).stand(3.0)
     assert brief.events == []
-    no_floor = Script().stand(1.0).run(3.0, phi=40.0, v=0.4, h=None, h_prev=None).lie(20.0, h=None)
-    assert no_floor.events == []
     bed = Script().stand(1.0).run(3.0, phi=40.0, v=0.4, h=1.2).lie(20.0, h=1.0)  # hip on a bed
     assert bed.events == []
+
+
+def test_prolonged_down_with_unknown_hip_height_unless_required() -> None:
+    no_floor = Script().stand(1.0).run(3.0, phi=40.0, v=0.4, h=None, h_prev=None).lie(10.5, h=None)
+    assert no_floor.kinds() == ["PROLONGED_DOWN"]  # spec: h below H_LOW or unavailable
+    strict = Script(FallCfg(prolonged_requires_h=True)).stand(1.0).run(3.0, phi=40.0, v=0.4, h=None,
+                                                                         h_prev=None).lie(20.0, h=None)
+    assert strict.events == []
+
+
+def test_prolonged_not_while_fall_confirmed_and_cooldown_shared() -> None:
+    s = Script().stand(1.0).drop().lie(15.0)  # stays down long after FALL_CONFIRMED
+    assert s.kinds() == ["FALL_CONFIRMED"]
 
 
 def test_fast_fall_backstop_via_prolonged_when_down_reached_late() -> None:

@@ -9,13 +9,14 @@ Fast path (spec):
     FALL_CONFIRMED --phi < PHI_RECOVER for confirmed_recover_hold_s--> STANDING (RECOVERED)
 
 Slow path (prolonged lying without a fast drop):
-    STANDING --phi > PHI_DOWN and h < H_LOW held for T_PROLONGED--> PROLONGED_DOWN (event)
-    PROLONGED_DOWN --same recovery rule as FALL_CONFIRMED--> STANDING (RECOVERED)
+    STANDING --phi > PHI_DOWN and (h < H_LOW or h unknown) held for prolonged_hold_s--> PROLONGED_DOWN
+    PROLONGED_DOWN --phi < PHI_RECOVER for recover_hold_s--> STANDING (RECOVERED)
 
 The down conditions may break for up to ``down_break_tolerance_s`` without
 restarting their timers. While the torso is not visible in a down state the
 timers pause; after ``lost_person_grace_s`` the machine resets to STANDING.
-If ``h`` is unknown the fast path uses ``phi`` alone; the slow path needs ``h``.
+If ``h`` is unknown both paths use ``phi`` alone (the slow path can be made to
+require ``h`` with ``prolonged_requires_h``).
 """
 from __future__ import annotations
 
@@ -98,7 +99,9 @@ class FallDetector:
 
     def _slow_down(self, f: Features) -> bool:
         assert f.phi is not None
-        return f.phi > self.cfg.PHI_DOWN and f.h is not None and f.h < self.cfg.H_LOW
+        if f.h is None:
+            return not self.cfg.prolonged_requires_h and f.phi > self.cfg.PHI_DOWN
+        return f.phi > self.cfg.PHI_DOWN and f.h < self.cfg.H_LOW
 
     def _confidence(self, v_peak: float, phi: float, elapsed: float, hold: float) -> float:
         c = self.cfg
@@ -192,7 +195,8 @@ class FallDetector:
                 self._down_start = None  # condition broken: the hold timer restarts
             return self._recovered(t, phi, c.recover_hold_s)
 
-        # FALL_CONFIRMED or PROLONGED_DOWN
+        if self._state is State.PROLONGED_DOWN:
+            return self._recovered(t, phi, c.recover_hold_s)
         return self._recovered(t, phi, c.confirmed_recover_hold_s)
 
     def _update_slow(self, t: float, f: Features) -> list[Event]:
@@ -201,12 +205,13 @@ class FallDetector:
             self._slow_ok = t
             if self._slow_start is None:
                 self._slow_start = t
-            if t - self._slow_start >= c.T_PROLONGED:
+            if t - self._slow_start >= c.prolonged_hold_s:
                 self._state = State.PROLONGED_DOWN
                 self._v_peak = self._v_since_upright
                 self._upright_since = None
                 assert f.phi is not None
-                return self._alert(t, "PROLONGED_DOWN", f.phi, self._v_peak, self._slow_start, c.T_PROLONGED)
+                return self._alert(t, "PROLONGED_DOWN", f.phi, self._v_peak, self._slow_start,
+                                   c.prolonged_hold_s)
         elif self._slow_start is not None and t - self._slow_ok > c.down_break_tolerance_s:
             self._slow_start = None
         return []

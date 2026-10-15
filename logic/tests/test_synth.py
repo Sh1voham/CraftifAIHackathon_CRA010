@@ -54,7 +54,7 @@ def test_dataset_mix_and_labels() -> None:
     assert 85 <= falls <= 95
     assert {v for (k, v) in c if k == "fall"} == {f"{d}_{r}" for d in ("forward", "backward", "sideways")
                                                    for r in ("stay", "recover")}
-    assert c[("lie_down_slow", "stay")] == 10 and c[("lie_down_slow", "brief")] == 10
+    assert c[("lie_slow_stay", "slow")] == 10 and c[("lie_slow_recover", "slow")] == 10
 
 
 def test_save_dataset_roundtrip(tmp_path) -> None:
@@ -86,7 +86,7 @@ def test_non_fall_kinematics_match_spec() -> None:
     bend = _features(make_clip("bend", "pickup", 4, "b"))
     assert max(f.phi for f in bend if f.phi is not None) > 55
     assert min(f.h for f in bend if f.h is not None) > 0.7
-    slow = _features(make_clip("lie_down_slow", "stay", 4, "l"))
+    slow = _features(make_clip("lie_slow_stay", "slow", 4, "l"))
     assert max(f.v for f in slow if f.v is not None) < 1.2
 
 

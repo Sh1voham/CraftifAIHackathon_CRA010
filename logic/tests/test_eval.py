@@ -6,9 +6,11 @@ import pytest
 
 from logic.config import Config, config_from_dict, load_config
 from logic.eval import (
-    ClipData, ClipResult, clip_features, evaluate, load_clips, main, run_detector, score_clip, split, summarize,
+    ClipData, ClipResult, clip_features, evaluate, format_margins, label_from_name, load_clips, main, margins,
+    run_detector, score_clip, split, summarize,
 )
 from logic.fall import Event
+from logic.io import write_jsonl
 from logic.synth import generate_dataset, make_clip, save_dataset
 
 
@@ -29,6 +31,10 @@ def test_score_clip_outcomes() -> None:
     assert score_clip(_clip("a", "FALL_CONFIRMED", 10.0), [_ev(5.0)], 20.0).outcome == "FN"  # before the fall
     slow = score_clip(_clip("s", "PROLONGED_DOWN", 10.0), [_ev(24.0, "PROLONGED_DOWN")], 20.0)
     assert slow.outcome == "TP" and slow.alert_kind == "PROLONGED_DOWN"
+    wrong = score_clip(_clip("f", "FALL_CONFIRMED", 10.0), [_ev(15.0, "PROLONGED_DOWN")], 20.0)
+    assert wrong.outcome == "FN" and wrong.false_alarms == 1  # an unexpected kind is a false alarm
+    anywhere = score_clip(_clip("r", "FALL_CONFIRMED", None), [_ev(99.0)], 20.0)
+    assert anywhere.outcome == "TP" and anywhere.delay_s is None  # real clips: no start time
     neg = score_clip(_clip("n", None, None, "sit_fast"), [_ev(5.0, "PROLONGED_DOWN")], 20.0)
     assert neg.outcome == "FP" and neg.false_alarms == 1
     assert score_clip(_clip("n", None, None, "sit_fast"), [_ev(5.0, "RECOVERED")], 20.0).outcome == "TN"
@@ -77,11 +83,20 @@ def test_tier1_synthetic_benchmark(benchmark) -> None:
     n_fast = sum(1 for c in data if c.label["expected_event"] == "FALL_CONFIRMED")
     assert 0.4 <= n_fast / len(data) <= 0.5
     train, test = split(data, cfg.eval.test_fraction, cfg.eval.split_seed)
-    m, _ = evaluate(test, cfg.fall, cfg.eval.match_window_s)
-    assert m.recall >= 0.95
+    m, results = evaluate(test, cfg.fall, cfg.eval.match_window_s)
     assert m.FP == 0 and m.false_alarms == 0
-    mean_delay, _ = m.delay("FALL_CONFIRMED")
+    fast = summarize(results, test, "FALL_CONFIRMED")
+    assert fast.recall >= 0.95 and fast.FP == 0
+    mean_delay, _ = fast.delay("FALL_CONFIRMED")
     assert 3.0 <= mean_delay <= 3.6
+    slow = summarize(results, test, "PROLONGED_DOWN")
+    assert slow.TP >= 1 and slow.FN == 0 and slow.FP == 0
+    by_class = {}
+    _, all_results = evaluate(data, cfg.fall, cfg.eval.match_window_s)
+    for r in all_results:
+        by_class.setdefault(r.cls, set()).update(k for k, _ in r.alerts)
+    assert by_class["lie_slow_stay"] == {"PROLONGED_DOWN"}
+    assert by_class["lie_slow_recover"] == set() and by_class["lie_quick_recover"] == set()
 
 
 def test_detector_throughput_at_least_2000_fps(benchmark) -> None:
@@ -104,8 +119,45 @@ def test_cli_eval_and_tune(tmp_path, capsys) -> None:
     assert main(["--data", str(tmp_path / "d"), "--config", str(cfg_path), "--tune", "--tuned-out", str(tuned),
                  "--out", str(tmp_path / "out")]) == 0
     out = capsys.readouterr().out
-    assert "grid search: 4 combinations" in out and "[test]" in out
+    assert "grid search: 4 combinations" in out and "[test | all events]" in out and "[test | FALL_CONFIRMED]" in out
     best = config_from_dict(json.loads(tuned.read_text()))
     assert (best.fall.V_DROP, best.fall.T_HOLD) == (1.2, 3.0)  # tie -> closest to defaults
     assert (tmp_path / "out" / "eval_results.csv").read_text().count("\n") == 31
     assert len(load_clips([tmp_path / "d"], Config())) == 30
+
+
+def test_label_from_name() -> None:
+    assert label_from_name("fall_01")["expected_event"] == "FALL_CONFIRMED"
+    assert label_from_name("Fall-forward_12")["expected_event"] == "FALL_CONFIRMED"
+    assert label_from_name("lie_slow_stay_03")["expected_event"] == "PROLONGED_DOWN"
+    for name in ("lie_slow_recover_02", "sit_01", "bend_04", "walk_02", "tug_01"):
+        assert label_from_name(name)["expected_event"] is None
+    lab = label_from_name("lie_slow_stay_03")
+    assert lab["class"] == "lie_slow_stay" and lab["t_fall_start"] is None
+
+
+def test_margins_report(benchmark) -> None:
+    cfg, data = benchmark
+    rows = margins(data[:40], cfg.fall)
+    falls = [r for r in rows if r.cls == "fall"]
+    sits = [r for r in rows if r.cls == "sit_fast"]
+    assert falls and sits
+    assert min(r.v_ratio for r in falls) > 1.0 and min(r.down_s for r in falls) > cfg.fall.T_HOLD
+    assert max(r.phi_max for r in sits) < cfg.fall.PHI_DOWN
+    text = format_margins(rows, cfg.fall)
+    assert "| fall |" in text and "peak v / V_DROP" in text
+
+
+def test_cli_real_clips_from_filenames(tmp_path, capsys) -> None:
+    d = tmp_path / "real"
+    d.mkdir()
+    for name, (kind, variant, seed) in {"fall_01": ("fall", "forward_stay", 1), "sit_01": ("sit_fast", "chair", 2),
+                                        "lie_slow_stay_01": ("lie_slow_stay", "slow", 3)}.items():
+        write_jsonl(d / f"{name}.jsonl", make_clip(kind, variant, seed, name).frames)
+    tuned = tmp_path / "tuned.json"
+    assert main(["--data", str(d), "--labels-from-filenames", "--tune", "--tuned-out", str(tuned),
+                 "--out", str(tmp_path / "out")]) == 0
+    out = capsys.readouterr().out
+    assert "3 real clips" in out and "WARNING: only 3 real clips" in out and not tuned.exists()
+    assert "| fall_01 | fall | FALL_CONFIRMED |" in out and "longest down" in out
+    assert "recall=1.000" in out
