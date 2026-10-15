@@ -134,4 +134,13 @@ All of these are handled in `io.py`. Run one sample through `python -m logic.dem
 8. **Video/keypoint time alignment** for evidence frames.
 
 ## Real-data handoff log
-No real sample received yet.
+- **15 Oct, ~22:30 IST:** first real PipeGen 0.5.1 output: `output/metadata.json` from our yolo11s-pose pipeline (copy in `docs/pipegen_metadata_sample.json`).
+- **Layout:** `{"pipeline": "video_json_export", "frames": [...]}`. Each frame has `pts_ns`, `width`/`height`, an empty `objects` list, and `shapes`: a `skeleton` (16 `[x, y]` points + one `score` + `id`) and a `box` (x, y, w, h).
+- **Fields:** `fields.timestamp_s` and `person_<id>_fall_status` are also present.
+- **Change, confined to `logic/io.py`:**
+  - read single-document `.json` files and `{"frames": [...]}`;
+  - map `shapes` skeletons to persons;
+  - take the time from `fields.timestamp_s` or `pts_ns`.
+- **Keypoint order:** the 16 points map to COCO indices 1..16 (no nose). This was judged from the point geometry: shoulders at y≈160, hips at y≈423, ankles at y≈740 in a 720p frame, and the `links` list. It is unverified against PipeGen docs, so override with `--kp-map` if needed.
+- **Detected:** layout "PipeGen shapes (skeleton)", time in seconds, pixel coordinates.
+- **Not yet done:** the exported file held only 1 frame, so a full real-clip fall run is still pending. A test runs a full synthetic fall written in this exact format and gets FALL_CONFIRMED.

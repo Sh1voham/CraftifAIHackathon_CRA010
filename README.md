@@ -66,12 +66,13 @@ python application.py /home/dread/videos/fall_test.mp4
 
 Set the pipeline's per-frame keypoint JSON output to a file, for example `/home/dread/pipegen_out/keypoints.jsonl`.
 
-**2. The SafeStride decision layer** reads the pipeline's keypoint JSON:
+**2. The SafeStride decision layer** reads the pipeline's keypoint JSON, including PipeGen's own `output/metadata.json` export (`video_json_export` with skeleton shapes; real sample in `docs/pipegen_metadata_sample.json`):
 
 ```bash
 pip install -r logic/requirements.txt
 python -m pytest logic/tests -q                       # 175 tests
 python -m logic.demo --selftest                       # end-to-end self test
+python -m logic.demo --source file:/home/dread/.pipegen/<user>/<project>/output/metadata.json --log-level INFO   # PipeGen export
 python -m logic.demo --source tail:/home/dread/pipegen_out/keypoints.jsonl --log-level INFO   # live, follows PipeGen output
 python -m logic.demo --source file:docs/demo_fall.jsonl --realtime --overlay                  # replay demo
 mosquitto_sub -h localhost -t "safestride/#" -v       # watch the alerts

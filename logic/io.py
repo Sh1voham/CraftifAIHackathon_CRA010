@@ -159,7 +159,10 @@ def write_frames(fh: TextIO, frames: Iterable[Frame]) -> None:
 # ---------------------------------------------------------------- live transports (raw JSON objects)
 
 def _split_payload(obj: Any) -> Iterator[Any]:
-    """A JSON list of frame objects yields each frame; anything else is one object."""
+    """A JSON list of frame objects (or a {"frames": [...]} document) yields each frame."""
+    if isinstance(obj, dict) and isinstance(obj.get("frames"), list) and all(isinstance(f, dict) for f in obj["frames"]):
+        yield from obj["frames"]
+        return
     if isinstance(obj, list) and obj and all(
             isinstance(o, dict) and any(k in o for k in TIME_KEYS + FRAME_KEYS + PERSON_LIST_KEYS) for o in obj):
         yield from obj
@@ -436,9 +439,54 @@ def _parse_bbox(raw: Any, kp: dict[str, tuple[float, float, float]]) -> BBox | N
     return xyxy
 
 
+def _pipegen_shapes(obj: dict[str, Any], opts: AdaptOpts) -> list[dict[str, Any]] | None:
+    """Persons from PipeGen's video_json_export ``shapes`` (verified on a real PipeGen 0.5.1 file).
+
+    A ``skeleton`` shape has ``points`` [[x, y], ...] and one ``score``; a ``box``
+    shape with the same ``id`` gives the bbox (x, y, w, h). 17 points are COCO-17;
+    the yolo11s-pose export we saw has 16 points, which match COCO indices 1..16
+    (eyes, ears, shoulders, elbows, wrists, hips, knees, ankles; no nose), judged
+    from the point geometry and the ``links`` list. Override with --kp-map.
+    """
+    shapes = obj.get("shapes")
+    if not isinstance(shapes, list):
+        return None
+    skels = [sh for sh in shapes if isinstance(sh, dict) and sh.get("kind") == "skeleton"]
+    if not skels:
+        return None
+    boxes = {sh.get("id"): sh for sh in shapes if isinstance(sh, dict) and sh.get("kind") == "box"}
+    persons = []
+    for sk in skels:
+        pts = sk.get("points") or []
+        score = _num(sk.get("score")) or 1.0
+        offset = 1 if len(pts) == len(KEYPOINT_NAMES) - 1 else 0
+        kp: dict[str, list[float]] = {}
+        for i, pt in enumerate(pts):
+            if not isinstance(pt, (list, tuple)) or len(pt) < 2:
+                continue
+            x, y = _num(pt[0]), _num(pt[1])
+            if x is None or y is None or (x == 0 and y == 0):
+                continue
+            key = str(i)
+            name = opts.kp_map[key] if opts.kp_map and key in opts.kp_map else (
+                KEYPOINT_NAMES[i + offset] if i + offset < len(KEYPOINT_NAMES) else None)
+            if name in KP_INDEX:
+                c = _num(pt[2]) if len(pt) > 2 else score
+                kp[name] = [x, y, score if c is None else c]
+        person: dict[str, Any] = {"kp": kp, "id": sk.get("id")}
+        box = boxes.get(sk.get("id"))
+        if box is not None and all(_num(box.get(k)) is not None for k in ("x", "y", "w", "h")):
+            person["bbox"] = {"x": box["x"], "y": box["y"], "w": box["w"], "h": box["h"]}
+        persons.append(person)
+    return persons
+
+
 def _parse(obj: Any, opts: AdaptOpts) -> _Parsed:
+    shapes = _pipegen_shapes(obj, opts) if isinstance(obj, dict) else None
     if isinstance(obj, list):
         container, persons_raw, list_key = {}, obj, "list"
+    elif isinstance(obj, dict) and shapes is not None:
+        container, persons_raw, list_key = obj, shapes, "PipeGen shapes (skeleton)"
     elif isinstance(obj, dict):
         container = obj
         list_key = next((k for k in PERSON_LIST_KEYS if isinstance(obj.get(k), list)), None)
@@ -451,8 +499,13 @@ def _parse(obj: Any, opts: AdaptOpts) -> _Parsed:
     else:
         raise ValueError(f"unsupported JSON value of type {type(obj).__name__}")
     tkey = next((k for k in TIME_KEYS if _num(container.get(k)) is not None), None)
+    fields = container.get("fields") if isinstance(container.get("fields"), dict) else {}
     if tkey is not None:
         raw_t, time_field = _num(container[tkey]), tkey
+    elif _num(fields.get("timestamp_s")) is not None:
+        raw_t, time_field = _num(fields["timestamp_s"]), "fields.timestamp_s"
+    elif _num(container.get("pts_ns")) is not None:
+        raw_t, time_field = _num(container["pts_ns"]), "pts_ns"
     else:
         fkey = next((k for k in FRAME_KEYS if _num(container.get(k)) is not None), None)
         raw_t, time_field = (_num(container[fkey]), f"frame:{fkey}") if fkey else (None, "none")
@@ -663,6 +716,10 @@ def read_keypoints(source: str | Path, *, follow: bool = False, poll_s: float = 
         yield from tail_jsonl(src, poll_s, idle_timeout_s, opts)
     elif src == "-":
         yield from adapt_stream(_iter_json_lines(_stdin_lines(), "<stdin>"), opts, "<stdin>")
+    elif src.lower().endswith(".json"):
+        with open(src, encoding="utf-8") as fh:
+            doc = json.load(fh)  # one JSON document, e.g. PipeGen's output/metadata.json
+        yield from adapt_stream(_split_payload(doc), opts, src)
     else:
         with open(src, encoding="utf-8") as fh:
             yield from adapt_stream(_iter_json_lines(fh, src), opts, src)
