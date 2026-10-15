@@ -1,131 +1,145 @@
 # SafeStride decision layer (`logic/`)
 
-CPU-only Python that turns PipeGen's per-frame body keypoints into fall alerts
-(MQTT + `incidents.jsonl`). Perception lives in PipeGen; this package only
-makes decisions. It is a screening aid, not a medical device.
+This is CPU-only Python. It turns the per-frame body keypoints from the PipeGen pose pipeline into:
+- fall alerts (`FALL_CONFIRMED`, `PROLONGED_DOWN`, `RECOVERED`), written to `incidents.jsonl` and MQTT;
+- gait metrics (speed, cadence, step-time CV, left/right symmetry, TUG time);
+- a LOW / MODERATE / HIGH fall-risk band.
+
+Perception lives in PipeGen; this package only makes decisions. It is a screening aid, not a medical device.
 
 ```
-keypoints (JSONL / stdin / folder / MQTT)
-  -> io.read_keypoints          (the only PipeGen-format code)
-  -> io.select_person           (follow one person)
-  -> filters.KeypointCleaner    (confidence gate, outliers, gap repair, One Euro, L_ref)
-  -> features.FeatureTracker    (torso angle phi, hip drop speed v, hip height h, AR)
-  -> fall.FallDetector          (STANDING/FALLING/DOWN/FALL_CONFIRMED + PROLONGED_DOWN)
-  -> run.Runner                 (incidents.jsonl, MQTT safestride/alerts, stdout, blurred evidence frame)
-  -> gait / tug / risk          (MQTT safestride/risk: speed, cadence, CV, symmetry, TUG, risk band, drift)
+keypoints (stdin / growing JSONL / per-frame JSON folder / MQTT)
+  -> io.adapt_stream / auto_adapt  (layout, timestamp unit, coordinates: the only vision-format code)
+  -> io.select_person              (follow one person)
+  -> filters.KeypointCleaner       (confidence gate, outliers, gap repair, One Euro, L_ref)
+  -> features.FeatureTracker       (torso angle phi, hip drop speed v, hip height h, AR)
+  -> fall.FallDetector             (STANDING/FALLING/DOWN/FALL_CONFIRMED + PROLONGED_DOWN)
+  -> gait / tug / risk             (speed, cadence, CV, symmetry, TUG, risk band, baseline drift)
+  -> run.Runner                    (incidents.jsonl, MQTT safestride/alerts|risk|status, blurred evidence frame)
 ```
 
-## Install
+See `docs/ARCHITECTURE.md` for the full data flow and `NOTES.md` for decisions and limitations.
+
+Every command below works in **PowerShell** and in **bash** (Git Bash, Linux) unless shown twice.
+
+## Install and test
 
 ```bash
 pip install -r logic/requirements.txt
-```
-
-Allowed packages only: numpy, scipy, opencv-python, paho-mqtt, pytest.
-
-## Tests
-
-```bash
 python -m pytest logic/tests -q
 ```
 
-## Replay a clip
+The allowed packages are numpy, scipy, opencv-python, paho-mqtt and pytest. The tests need no MQTT broker and no camera.
+
+## Live demo (one command)
 
 ```bash
-python -m logic.run --input clip.jsonl --mqtt localhost:1883 --camera builtin0 --model pose-fp16
+python -m logic.demo --selftest
 ```
 
-- `--realtime` replays at the original timestamps (good for demos).
-- `--start-wallclock 2026-10-15T20:41:00+05:30` gives reproducible `ts` values (byte-identical output).
-- `--video clip.mp4` saves a **blurred** frame for each alert under `blurred/`. Without it only keypoints are kept, which is the default and the privacy story for the pitch.
-- `--config logic/config.tuned.json` uses tuned thresholds.
-- Events are printed to stdout as JSON lines; logs go to stderr.
+`--selftest` replays a built-in synthetic fall and a fast sit through the whole stack and prints `SELFTEST PASS` or `SELFTEST FAIL`. It also checks MQTT delivery when a broker answers on `localhost:1883`.
 
-Watch MQTT in another terminal:
+```bash
+# PipeGen appends JSON lines to a file
+python -m logic.demo --source tail:C:/pipegen/out/keypoints.jsonl --camera builtin0 --model pose-fp16
+# PipeGen writes one JSON file per frame
+python -m logic.demo --source folder:C:/pipegen/out/frames
+# PipeGen publishes keypoints on MQTT
+python -m logic.demo --source mqtt:localhost:1883/pipegen/keypoints
+# Stage fallback: replay a recorded clip at its real speed with an overlay window
+python -m logic.demo --source file:docs/demo_fall.jsonl --realtime --overlay
+python -m logic.demo --source file:docs/demo_walk.jsonl --realtime --overlay --person alice
+```
+
+- The demo prints one status line per second (state, torso angle, hip speed, hip height, risk band) and a `***` line for every event.
+- Alerts go to `incidents.jsonl` and MQTT `safestride/alerts`. Use `--no-mqtt` without a broker; otherwise a missing broker just logs one warning.
+- `--overlay` opens an OpenCV window. Add `--video clip.mp4` to draw on the video; without it you get a dark keypoint-only canvas. Press `q` to quit.
+- Input format options (also on `run`, `overlay`):
+  - `--ts-unit {auto,s,ms,us,ns}`: auto infers the unit from the median frame interval; DeepStream PTS is usually ns.
+  - `--coords {auto,px,norm}` with `--frame-size 1280x720`: normalised coordinates need a frame size.
+  - `--fps 30`: used only when frames carry frame numbers instead of timestamps.
+  - `--kp-map map.json`: source index or name → COCO-17 name, for non-COCO models.
+- The detected layout, timestamp unit and coordinate mode are logged once at startup. Run with `--log-level INFO` to see them.
+
+**Demo note:** lying on the floor for 10 s or more raises `PROLONGED_DOWN` even without a fast fall. Don't lie down deliberately for long unless that is the point.
+
+## Watch MQTT
 
 ```bash
 mosquitto_sub -h localhost -t "safestride/#" -v
 ```
 
-MQTT is optional. If the broker is down, the detector logs one warning, keeps writing `incidents.jsonl`, and retries in the background.
+Topics:
+- `safestride/alerts`: fall events, same JSON as `incidents.jsonl`.
+- `safestride/risk`: gait and risk summaries.
+- `safestride/status`: heartbeat every 5 s.
 
-## Live mode (PipeGen output)
-
-```bash
-# PipeGen app prints JSON lines on stdout
-pipegen-app | python -m logic.run --input - --mqtt localhost:1883
-
-# PipeGen appends to a JSONL file
-python -m logic.run --input /path/keypoints.jsonl --follow --mqtt localhost:1883
-
-# PipeGen writes one JSON file per frame into a folder
-python -m logic.run --input /path/frames_dir/ --mqtt localhost:1883
-
-# PipeGen publishes keypoints over MQTT
-python -m logic.run --input mqtt://localhost:1883/pipegen/keypoints --mqtt localhost:1883
-```
-
-Add `--record session.jsonl` to save every received frame in replay format. You can label those recordings later and use them with `eval`.
-
-**Demo note:** lying on the floor for 10 s or more raises `PROLONGED_DOWN` even without a fast fall. Don't lie down deliberately for more than a few seconds unless that is the point of the demo.
-
-## Gait, TUG and risk band
-
-`run.py` also computes walking speed, cadence, step-time CV, left/right symmetry and (when a sit–walk–turn–sit sequence is seen) TUG time. It publishes a LOW / MODERATE / HIGH risk band to `safestride/risk`.
+## Replay and pipe (scriptable runner)
 
 ```bash
-python -m logic.run --input - --mqtt localhost:1883 --person alice --calib 412,700,892,700,3.0
+python -m logic.run --input clip.jsonl --mqtt localhost:1883 --camera builtin0 --model pose-fp16
+python -m logic.run --input clip.jsonl --start-wallclock 2026-10-15T20:41:00+05:30   # byte-identical output
 ```
 
-- `--calib x1,y1,x2,y2,metres` gives two floor-marker pixels a known distance apart. Without it, speed uses a rough torso = 0.5 m scale and is reported with `calibrated=false`.
-- `--person` keeps a walking-speed baseline in `logic/baselines.json` and flags drift: speed below 0.8 × baseline, or z < −2 over the last 5+ sessions.
-- `--no-gait` turns this off.
-- Walk side-on across the frame. Turns are discarded, and steps are pooled across passes, so several short passes work.
-
-The scoring thresholds are illustrative design choices, not a validated clinical model.
-
-## Synthetic data, evaluation and tuning
+Pipe frames in from stdin:
 
 ```bash
-python -m logic.synth --out data/synth --n 200 --seed 0     # labelled clips + labels.json
-python -m logic.eval --data data/synth                      # confusion matrix, F1, FA/h, delays, out/eval_results.csv
-python -m logic.eval --data data/synth --tune               # grid search -> logic/config.tuned.json
-python -m logic.eval --data data/synth --bench              # frames per second on one core
+# bash
+cat clip.jsonl | python -m logic.run --input - --mqtt localhost:1883
 ```
 
-`--data` can be repeated, for example to pool real recordings with synthetic ones. For tuning, real recordings take priority over synthetic ones. A clip folder holds `<name>.jsonl` files (replay format) plus `labels.json`:
-
-```json
-{"fall_01": {"class": "fall", "variant": "forward", "expected_event": "FALL_CONFIRMED", "t_fall_start": 812.4},
- "sit_03":  {"class": "sit_fast", "variant": "chair", "expected_event": null, "t_fall_start": null}}
+```powershell
+# PowerShell
+Get-Content clip.jsonl | python -m logic.run --input - --mqtt localhost:1883
 ```
 
-- `t_fall_start` uses the same clock as the frames' `t`.
-- `expected_event` is `FALL_CONFIRMED` (fast fall), `PROLONGED_DOWN` (slow lowering, stays down) or `null`.
-- Split, grid and match window live under `eval` in `config.json`.
+Other `run` options:
+- `--follow`: tail a growing file.
+- `--record session.jsonl`: save the received frames in replay format, for labelling later.
+- `--video clip.mp4`: save a **blurred** frame for each alert under `blurred/`.
+- `--person alice --calib x1,y1,x2,y2,metres`: gait baseline and floor calibration.
+- `--no-gait`: turn off gait/risk analysis.
 
-## Overlay (demo view)
+## Evaluation
+
+Synthetic benchmark:
 
 ```bash
-python -m logic.overlay --video clip.mp4 --input clip.jsonl                     # replay in a window
-pipegen-app | python -m logic.overlay --camera 0 --input -                      # live camera + live keypoints
-python -m logic.overlay --video clip.mp4 --input clip.jsonl --headless --save demo.mp4
+python -m logic.synth --out data/synth --n 200 --seed 0
+python -m logic.eval --data data/synth
+python -m logic.eval --data data/synth --tune      # grid search -> logic/config.tuned.json
+python -m logic.eval --data data/synth --bench     # frames per second on one core
 ```
 
-The window shows the skeleton coloured by fall state, torso angle, hip speed, risk band, and the last alert as a banner (press `q` to quit). The overlay runs the same decision layer, so it also writes `incidents.jsonl` and, with `--mqtt`, publishes alerts. `--save` writes a video with every person **blurred** before the skeleton is drawn. A live camera may already be in use by the PipeGen app; in that case use the PipeGen display, or replay a recording.
-
-## FP16 vs INT8 comparison (Edge Optimization bonus)
-
-Record the same clips with both engines (e.g. `--record` in `run.py`), then:
+Real recordings, named by class (`fall_01`, `sit_01`, `bend_01`, `lie_slow_stay_01`, `lie_slow_recover_01`, `walk_01`, `tug_01`, …):
 
 ```bash
+python -m logic.eval --data data/real --labels-from-filenames
+python -m logic.eval --data data/real --labels-from-filenames --tune
+```
+
+- Labels come from the name: `fall_*` expects `FALL_CONFIRMED`, `lie_slow_stay_*` expects `PROLONGED_DOWN`, everything else expects no event.
+- A **margin report** shows, per clip and per class, the peak hip speed relative to V_DROP, peak torso angle, minimum hip height and longest time down. Use it to place thresholds between the fall and non-fall groups.
+- `--tune` on real clips uses a coarse grid. It never writes `config.tuned.json` from fewer than 10 real clips; it prints a warning instead.
+
+Regenerate the results document (no hand-typed numbers):
+
+```bash
+python -m logic.make_results            # writes docs/RESULTS.md; includes data/real if present
+```
+
+## Overlay and FP16/INT8 comparison
+
+```bash
+python -m logic.overlay --video clip.mp4 --input clip.jsonl                          # window
+python -m logic.overlay --video clip.mp4 --input clip.jsonl --headless --save demo.mp4  # people blurred
 python -m logic.compare_precision --a runs/fp16/ --b runs/int8/ --labels runs/labels.json --out precision.md
 ```
 
-The report has:
-- the mean keypoint error normalised by L_ref, overall and per keypoint;
+`compare_precision` aligns the two runs by timestamp and reports:
+- the keypoint error normalised by torso length, overall and per keypoint;
 - the share of keypoints whose confidence drops by more than 0.2;
-- fall alerts per run, and caught/N when labels are given.
+- the fall alerts each run produces.
 
 Latency, FPS and power come from PipeGen's speed reports.
 
@@ -137,14 +151,17 @@ Replay format, one frame per line, pixels, y pointing down, COCO-17 names:
 {"t": 12.345, "persons": [{"id": 0, "bbox": [x1, y1, x2, y2], "kp": {"l_shoulder": [412.0, 220.5, 0.91]}}]}
 ```
 
-- `id` and `bbox` are optional.
-- A missing keypoint may be absent or `[0, 0, 0]`.
-- `kp` may also be a list of 17 `[x, y, c]` triples or 51 flat numbers in COCO order.
+`auto_adapt` also accepts:
+- `objects` / `detections` / `people` lists;
+- keypoints as a dict by name (`left_shoulder` style names work), a list of 17 `[x, y, c]` triplets, a flat list, or `x`/`y`/`score` arrays;
+- boxes as `[x, y, w, h]` or `rect_params`;
+- `track_id` / `object_id` as the person id;
+- `ts` / `timestamp` / `pts` / `frame_num` as the time field.
 
-See `docs/sample_frames.jsonl` and `docs/sample_incidents.jsonl` at the repo root for examples.
+Examples: `docs/sample_frames.jsonl`, `docs/sample_incidents.jsonl`.
 
-**At the real-data handoff, change only `_from_pipegen()` and `PIPEGEN_NAME_MAP` in `io.py`.**
+**At the real-data handoff, only `logic/io.py` may change.** Run one sample through `python -m logic.demo --source file:sample.jsonl --log-level INFO` and read the detected layout line.
 
 ## Configuration
 
-Every tunable number is in `logic/config.json`, loaded into dataclasses by `logic/config.py`. Unknown keys raise an error. The ref/bad values and weights used for risk scoring are illustrative design choices, not a validated clinical model.
+Every tunable number is in `logic/config.json`, loaded into dataclasses by `logic/config.py`. Unknown keys raise an error. The risk-score ref/bad values and weights are illustrative design choices, not a validated clinical model.

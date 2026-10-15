@@ -1,143 +1,137 @@
 # SafeStride decision layer — engineering notes
 
-## Status at 18:54 IST, 15 Oct 2026 (start of prompt 2)
-1. **Built and committed:** config, io (file/stdin/tail/folder/MQTT readers), filters, features, fall (incl. PROLONGED_DOWN), pipeline, incidents, mqtt_out, privacy, run, synth, eval (+tune/bench), gait, tug, risk, overlay, compare_precision.
-2. **Tests:** `python -m pytest logic/tests -q` → 137 passed (~90 s).
-3. **Synthetic benchmark (test split):** recall 1.0, 0 false alarms, mean fast-fall delay 3.51 s; throughput ~11k frames/s.
-4. **Tier 2 (gait/TUG/risk):** done and tested at 160 and 400 px/m.
-5. **Tier 3 (overlay, FP16/INT8 comparison):** done.
-6. **Gaps vs prompt 2:**
-   - no `auto_adapt` layout detection, no `--ts-unit`/`--coords`/`--kp-map`;
-   - no `demo.py`/`--selftest`;
-   - no filename labels or margin report for real clips;
-   - no docs set (ARCHITECTURE, PROJECT_DESCRIPTION, RESULTS, DEMO_SCRIPT);
-   - the PROLONGED_DOWN rules differ slightly from the new spec;
-   - synth class names differ.
-7. **Untested here:** a real MQTT broker (no Mosquitto on this Windows machine) and the live camera window.
-8. **No real PipeGen data yet.**
+All numbers are on **synthetic** data unless stated otherwise. SafeStride is a screening prototype, not a medical device. Measured results live in `docs/RESULTS.md`, which `python -m logic.make_results` generates.
 
-All numbers below are on **synthetic** data unless stated otherwise.
-SafeStride is a screening prototype, not a medical device.
+## Final status (prompt 2)
+1. **Built:**
+   - Tier 1: config, io (+ `auto_adapt`), filters, features, fall (+ PROLONGED_DOWN), pipeline, incidents, mqtt_out, privacy, run, synth, eval.
+   - Tier 2: gait, tug, risk.
+   - Tier 3: overlay, compare_precision.
+   - Prompt 2: demo (`--selftest`), make_results.
+   - Docs: README, ARCHITECTURE, PROJECT_DESCRIPTION, RESULTS, DEMO_SCRIPT.
+2. **Tests:** `python -m pytest logic/tests -q`. The final count is in the last commit message and the final report.
+3. **Synthetic held-out test split:** every expected event raised, 0 false alarms, fast-fall delay mean 3.51 s (max 3.60). PROLONGED_DOWN fires on all `lie_slow_stay` clips and on no `lie_slow_recover` clip.
+4. **Throughput:** ~11k frames/s for the fall path, ~3.5k with gait (one core).
+5. **Not exercised here:** a real MQTT broker (only fakes and an unreachable broker; `--selftest` checks delivery when one exists) and the OpenCV window (headless tests only).
+6. **No real PipeGen output seen yet.** All format handling is in `io.py` (`auto_adapt`).
 
-## Tier 1 status: done
+## Status at 18:54 IST (start of prompt 2), kept for the record
+Tiers 1–3 were already done and 137 tests passed. Gaps against prompt 2:
+- `auto_adapt`, `--ts-unit`/`--coords`/`--kp-map`;
+- `demo.py`;
+- filename labels and the margin report;
+- the docs set;
+- PROLONGED_DOWN details;
+- synth class names.
 
-| Acceptance check | Result |
+All were closed in this session.
+
+## Acceptance checks
+
+| Check | Result |
 |---|---|
-| `pytest` | 96 passed, 3 skipped at the Tier 1 gate (the gait/tug/risk wall-clock checks skipped until those modules existed) |
-| Synthetic benchmark (200 clips, seed 0, 70/30 stratified split) | test: TP 27, FN 0, FP 0, TN 30; recall 1.000, precision 1.000, F1 1.000, 0 false alarms (0.0/h) |
-| Fast-fall alert delay after fall start | test mean 3.51 s, max 3.60 s (train mean 3.51 s, max 3.63 s); target 3.0–3.6 s mean ✔ |
-| Slow-lowering `PROLONGED_DOWN` delay after descent start | test mean 13.3 s (≈4 s descent + 10 s hold) |
-| Throughput (one core, `--bench`) | ~11,500 frames/s for pipeline + detector (8,400 on an earlier run; timings vary); JSON parsing ~23,000 frames/s; full runner with gait ~4,000 frames/s (target ≥ 2000) ✔ |
-| Byte-identical replay | ✔ (`test_cli_replay_is_byte_identical`, with fixed `--start-wallclock`) |
-| `--input -` stdin mode | ✔ (subprocess test, including an unreachable MQTT broker) |
-| No wall clock in algorithm modules | ✔ (`test_static.py` scans filters, features, fall, gait, tug, risk) |
+| Fast-fall recall ≥ 0.95, zero false alarms, mean delay 3.0–3.6 s (held-out split) | ✔ recall 1.000, FP 0, mean 3.51 s (`test_tier1_synthetic_benchmark`) |
+| PROLONGED_DOWN on `lie_slow_stay`, not on `lie_slow_recover` | ✔ 10/10 and 0/10 (same test) |
+| ≥ 2000 frames/s | ✔ ~11,000 (`test_detector_throughput_at_least_2000_fps`, RESULTS.md §3) |
+| Byte-identical replay with fixed `--start-wallclock` | ✔ `test_cli_replay_is_byte_identical` |
+| `python -m logic.demo --selftest` prints PASS | ✔ (MQTT check SKIPPED without a broker) |
+| Each `auto_adapt` layout has a unit test | ✔ `test_adapt.py` (layouts a–e, bbox forms, units s/ms/us/ns, frame numbers, normalised coords, kp_map, truncation, folder, MQTT) |
+| No wall clock in filters/features/fall/gait/tug/risk | ✔ `test_static.py` |
+| Gait: speed ±10 %, cadence ±5 spm, SI ±3 pts at 160 and 400 px/m; TUG ≥ 90 % | ✔ `test_gait.py`, `test_tug.py` (TUG 20/20) |
+| Fresh clone: install + tests | see final report |
 
-Numbers are from the final code (after the Tier 2 outlier fix; before it, test mean 3.53 s and max 3.80 s). Delay ≈ time to reach DOWN (~0.45–0.6 s of the ~0.5–0.8 s descent) + `T_HOLD`
-(3.0 s) + one frame. Live latency also adds the gap-repair buffer (≤5 frames,
-~0.17 s) plus PipeGen inference.
-
-**Synthetic data is easy.** Every class is separated perfectly, so these
-numbers say the logic is wired correctly, not that it works on people. Real
-recordings take priority.
-
-### Tuning (`python -m logic.eval --data data/synth --tune`)
-- Grid: V_DROP {0.8, 1.0, 1.2, 1.5, 1.8} × PHI_DOWN {50…70} × H_LOW {0.3, 0.4, 0.5, 0.7} × T_HOLD {2.5, 3.0, 3.5} = 300 combinations, ~26 s.
-- 180/300 combinations have zero train false alarms (unchanged on the final code). **All 120 failures come from V_DROP ≤ 1.0**, which alerts on `lie_down_slow/brief` (a deliberate lie-down for 4–6 s): the kneel-to-floor stage is fast enough to start FALLING. Keep V_DROP ≥ 1.2 unless real data says otherwise.
-- The winner equals the defaults (V_DROP 1.2, PHI_DOWN 60, H_LOW 0.5, T_HOLD 3.0); ties are broken toward the defaults. Test F1 1.000. `logic/config.tuned.json` therefore matches `config.json`.
+**Synthetic data is easy.** Every class separates perfectly, which says the logic is wired correctly, not that it works on people.
 
 ## Final parameter values (`logic/config.json`)
-- **Filters:** c_min 0.30; max_gap_frames 5; outlier_jump_Ls 0.5; L_ref window 2.0 s.
-- **One Euro:** min_cutoff 1.0, beta 0.02, d_cutoff 1.0, reset after 1.0 s gap.
-- **Features:** drop window 0.25 s (reference sample must be ≤ 0.75 s old); floor learned over 5 s upright (phi < 20°), provisional after 0.5 s, 90th percentile of the lower ankle; fallback hip + 1.2 L_ref.
-- **Fall:** V_DROP 1.2 L/s; PHI_DOWN 60°; H_LOW 0.5 L; T_HOLD 3.0 s; PHI_RECOVER 30°; recover holds 2.0 s (DOWN) and 5.0 s (confirmed); FALLING timeout 1.5 s; cooldown 30 s; lost-person grace 2.0 s; down-condition break tolerance 0.3 s; **T_PROLONGED 10.0 s**.
-- **Confidence:** 0.30·c_v + 0.35·c_phi + 0.35·c_t (as specified).
+- **Filters:**
+  - c_min 0.30;
+  - max_gap_frames 5;
+  - outlier_jump_Ls 0.5 per typical frame interval, scaled by elapsed time (frame_dt_window 15);
+  - L_ref window 2.0 s;
+  - One Euro min_cutoff 1.0, beta 0.02, d_cutoff 1.0, reset after a 1.0 s gap.
+- **Features:**
+  - drop window 0.25 s (reference sample ≤ 0.75 s old);
+  - floor learned over 5 s upright (phi < 20°), provisional after 0.5 s, from the 90th percentile of the lower ankle;
+  - fallback floor = standing hip + 1.2 L_ref.
+- **Fall:**
+  - V_DROP 1.2 L/s, PHI_DOWN 60°, H_LOW 0.5 L, T_HOLD 3.0 s, PHI_RECOVER 30°;
+  - recover_hold_s 2.0 (DOWN and PROLONGED_DOWN), confirmed_recover_hold_s 5.0;
+  - falling_timeout 1.5 s, cooldown 30 s, lost-person grace 2.0 s, break tolerance 0.3 s;
+  - **prolonged_hold_s 10.0**, prolonged_requires_h false;
+  - confidence = 0.30·c_v + 0.35·c_phi + 0.35·c_t.
+- **Gait / TUG / risk:** as specified (see `config.json`). The risk ref/bad values and weights are illustrative, not clinically validated.
+- **Input adaptation:**
+  - default_fps 30 (frame-number inputs only);
+  - unit inference from the median delta of the first 10 frames, with a plausible frame interval of 0.005–0.5 s;
+  - coordinates within [0, 1.5] count as normalised.
+
+### Tuning
+- **Grid:** 300 combinations (V_DROP {0.8…1.8} × PHI_DOWN {50…70} × H_LOW {0.3…0.7} × T_HOLD {2.5, 3, 3.5}).
+- **Feasible:** 180 have zero train false alarms. **All failures use V_DROP ≤ 1.0**, which alerts on `lie_slow_recover` (a deliberate lie-down of about 4 s): its kneel-to-floor stage starts FALLING.
+- **Winner:** the defaults (ties are broken toward the defaults), so `config.tuned.json` equals `config.json`.
+- **Margins:**
+  - `lie_quick_recover` reaches 1.4–1.95 × V_DROP and lies flat, but for only 0.9–1.3 s, so **T_HOLD, not V_DROP, separates it from a fall**;
+  - `leave_frame` reaches up to 2.3 × V_DROP as the body is cut by the frame edge, but phi stays under 30°.
 
 ## Decisions and deviations (prompt vs PDF vs physics)
 1. **One Euro filter** (prompt), not the PDF's EMA.
-2. **Second path for slow falls (`PROLONGED_DOWN`):** fires when phi > PHI_DOWN and h < H_LOW hold for 10 s with no fast drop. It requires h, so with no floor estimate there is no prolonged alert, and a bed or sofa (hip ≈1 L up) never triggers it. It has a separate event kind and state, the same recovery and cooldown as FALL_CONFIRMED, and counts as a TP in eval for slow-lowering clips. It also backstops a fast fall that only reaches the floor pose after the FALLING timeout.
-3. **Scale conflict in the brief:** a 200 px torso (0.5 m) means 400 px/m, but "3 m = 480 px" means 160 px/m. Synth uses a per-clip `px_per_m`: 400 for the benchmark, 160 (and others) for gait clips.
-4. **Hip-speed reference sample:** the newest sample that is at least `drop_window_s` old. The prompt's "oldest" and the PDF skeleton (oldest in a 30-frame deque, ≈1 s) would smear the speed.
-5. **DOWN continuity:** the T_HOLD timer needs the down condition continuously, allowing breaks ≤ 0.3 s. Otherwise "lie down and get up within 2 s" would confirm after the person stood up. A longer break restarts the timer; the machine stays in DOWN until recovery (phi < 30° for 2 s).
-6. **Added guard:** STANDING→FALLING also needs the hip at the start of the drop window to be ≥ H_LOW (or unknown). Without it, jitter on someone already lying could start FALLING and alert 3 s later.
-7. **Lost person:** in DOWN, FALL_CONFIRMED and PROLONGED_DOWN the timers *pause* while the torso is invisible, then reset to STANDING after 2 s. The FALLING timeout keeps running. "Visible" means both shoulders and both hips are valid.
-8. **Gap repair is causal with a ≤5-frame delay** (it needs the next valid sample). Event times come from frame `t`, so measured delays are unaffected; live latency grows by ~0.17 s at 30 fps. Interpolation never bridges more than 1.0 s.
-9. **Outlier re-anchoring:** a keypoint rejected for more than `max_gap_frames` frames in a row is accepted at its new position, so one bad anchor cannot lock it out. Rejections only compare against a sample from the last ~6 frames, and only once L_ref exists.
-10. **Floor line = ankle line** (~0.04 m above the true floor in synth). The fallback `hip + 1.2 L_ref` follows the brief, but real anatomy is ≈1.8 L, so the fallback puts the floor too high and makes h too small. That is safe for falls but could help a deep bend reach DOWN. If h is unknown, the fast path uses phi alone.
-11. **Blur:** the person box is expanded 15 % **on each side** (the conservative reading). With no locatable person the whole frame is blurred. `save_blurred` is the only frame writer, and its test spies on the encoder to prove the original is never written.
-12. **Incident `ts`:** in replay, `start_wallclock + (t − t_first)` (the first frame maps to the start time) rather than `+ t`, because PipeGen's `t` may be an epoch. Live sources use the current local time. Records also carry `t_s` (frame time) for correlating with keypoint logs.
-13. **Non-increasing timestamps** are dropped with a warning in `pipeline.py`.
-14. **Tuner tie-break:** closest to the defaults (normalised by grid span), then lowest mean delay. This keeps T_HOLD at the 3 s product requirement unless a change actually helps.
-15. **Eval false alarms** are counted strictly: any alert on a negative clip, or any extra alert outside `[t_fall_start, +20 s]` on a positive clip.
-16. **Added `--record`** in `run.py` to capture live sessions in replay format for labelling and tuning.
+2. **PROLONGED_DOWN** (prompt 2 spec):
+   - Fires when phi > PHI_DOWN and (h < H_LOW **or h unknown**) hold for 10 s, allowing breaks ≤ 0.3 s, with no fast drop and not while FALL_CONFIRMED.
+   - Recovers after phi < 30° for 2 s, emitting RECOVERED only if the alert was emitted.
+   - Shares the cooldown.
+   - **Risk:** with h unknown, someone already lying on a bed when monitoring starts (never seen upright, so no floor estimate) alerts after 10 s. `fall.prolonged_requires_h: true` turns that off; it was the original design. A bed with a known floor (hip ≈ 1 L up) does not alert.
+3. **Scale conflict in the brief** (200 px torso vs 3 m = 480 px): synth uses a per-clip `px_per_m` (400 for the benchmark; 160 and 400 for gait).
+4. **Hip-speed reference sample** = the newest sample at least `drop_window_s` old (the "oldest" reading smears the speed).
+5. **DOWN continuity:** the T_HOLD timer needs the down condition continuously, allowing breaks ≤ 0.3 s.
+6. **Added guard:** FALLING also needs the hip above H_LOW at the start of the drop window, so jitter on someone already lying cannot start a fall.
+7. **Lost person:** timers pause in down states and reset to STANDING after 2 s invisible; the FALLING timeout keeps running.
+8. **Gap repair delays output by ≤ 5 frames** (~0.17 s at 30 fps); event times use frame `t`.
+9. **Outlier re-anchoring** after `max_gap_frames` rejections.
+10. **Floor line = ankle line.** The fallback `hip + 1.2 L_ref` follows the brief; real anatomy is ≈ 1.8 L, so h reads low. If h is unknown, both paths use phi alone.
+11. **Blur:** the box is expanded 15 % per side; the whole frame is blurred if no person is found; `save_blurred` is the only frame writer.
+12. **Incident `ts`:** `start_wallclock + (t − t_first)` in replay, local time when live; records also carry `t_s`.
+13. **Non-increasing timestamps** are dropped with a warning.
+14. **Tuner tie-break:** closest to the defaults, then lowest delay.
+15. **Eval (prompt 2):**
+    - A TP needs the expected event **kind**; any other alert, including the wrong kind, is a false alarm.
+    - FALL_CONFIRMED and PROLONGED_DOWN are reported separately.
+    - Real clips (`--labels-from-filenames`) have no start time: the event may occur anywhere and delay is not scored.
+    - Real-data `--tune` uses a coarse grid without a split and refuses to write `config.tuned.json` from < 10 clips.
+16. **Margin report "longest down"** = the longest continuous stretch with phi > PHI_DOWN and (h < H_LOW or unknown).
+17. **`read_keypoints` normalises time to start at 0** (spec 2.3). Incident `t_s` and `--record` files therefore start at 0. `read_jsonl`, used by eval, keeps the original times so `labels.json` start times stay valid.
+18. **The demo status line** prints once per second of **frame** time, which equals wall time live and with `--realtime`.
+19. **Truncation detection** in `tail_jsonl` triggers when the file becomes shorter than the read position; a file replaced by a longer one is not detected.
+20. **Prompt-1 changes kept:** `--record`, the `CleanFrame.raw` keypoints for gait, and the time-scaled outlier limit (a bug found by the gait test).
 
-## Synthetic generator (`logic/synth.py`)
-- **Model:** 2D stick figure in metres (torso 0.5 m, thigh 0.43, shank 0.42, ankle 0.08; ±5 % body scale per clip).
-- **Views:** side view for most clips; frontal view for sideways falls.
-- **Timing:** 30 fps with ±3 ms jitter, 2 % dropped frames plus rare 2–3-frame bursts, and a random t offset (clips never start at 0).
-- **Keypoint noise:** σ = 0.01 L, ~3 % dropouts in 1–3-frame bursts (written as `[0,0,0]`), confidences U(0.5, 0.95), keypoints outside the image removed, person dropped when fewer than 5 keypoints are visible. bbox is present in about half the clips; a smaller bystander appears in ~10 %.
-- **Mix (n=200):** 90 fast falls (forward/backward/sideways × stay/recover, mean hip speed 2–3 L/s, phi 80–90°), 10 slow-lowering-stay (positive, PROLONGED_DOWN), and 100 negatives: standing, walk (+turn), sit_fast, bend, lie_slow_recover, lie_quick_recover, leave_frame.
+## Synthetic generator
+- **Model:** 2D stick figure in metres, projected with `px_per_m`. Frontal view for sideways falls.
+- **Timing:** 30 fps ± 3 ms with dropped frames.
+- **Keypoint noise:** σ 0.01 L, ~3 % dropouts in bursts, confidence U(0.5, 0.95), off-image keypoints removed, optional bbox, a bystander in ~10 % of clips.
+- **Mix (n=200):**
+  - 90 fast falls (forward, backward, sideways × stay or recover);
+  - 10 `lie_slow_stay`;
+  - 100 negatives: standing, walk (+turn), sit_fast, bend, `lie_slow_recover`, lie_quick_recover, leave_frame.
+- **Gait walks:** known speed, cadence and asymmetry; the step peaks sit at the true step times. TUG clips carry the true phase times.
 
 ## Known limitations
-- Everything is validated only on synthetic stick figures. There is no occlusion model, no clothing or furniture, no camera perspective (one fixed px/m), no falls while walking, and no falls toward or away from the camera.
-- **Strict torso validity:** phi and v need both shoulders and both hips at confidence ≥ 0.3. In a real side view the far-side shoulder or hip often scores low, which would starve the features. This is the first thing to check on real data (a single-side fallback is a small change, not built).
-- **Ankles are often cropped** on a laptop camera at 2 m. The floor then falls back to the hips (see decision 10), and PROLONGED_DOWN stays silent if h is never available.
-- One person is followed at a time. The tracker is nearest-mid-hip, which can swap identities when people cross closely.
-- **Persistent DOWN:** a person who ends up kneeling or sitting on the floor (30° < phi < 60°) stays in DOWN without alerting until they stand.
-- `frame_saved` is `null` unless `--video` is given. The live frame source from PipeGen is not wired (the camera is owned by the PipeGen app).
+- **Validated only on synthetic stick figures.** There is no occlusion model, clothing, furniture or perspective, and no falls while walking or toward the camera.
+- **Strict torso validity:** phi and v need both shoulders and both hips at confidence ≥ 0.3. A real side view often scores the far side low. **This is the first thing to check on real data.**
+- **Ankles are often cropped at 2 m,** so the floor falls back to hip + 1.2 L_ref (see decision 10).
+- **Tracking:** one person is followed (nearest mid-hip); identities can swap when people cross.
+- **Floor sitting:** someone sitting or kneeling on the floor after a fall (30° < phi < 60°) stays in DOWN without alerting.
+- **Evidence frames:** `frame_saved` stays null unless `--video` is given, because the PipeGen app owns the camera.
+- **Synthetic gait:** the walking model is idealised (uniform hip speed). Real hip speed oscillates within each step, which the steady-window CV threshold of 0.25 should tolerate. Unverified.
 
-## PipeGen assumptions still to verify against real output
-1. **Field names** and nesting (`t`, `persons`, `kp`, `bbox`, `id`). Change `_from_pipegen()` / `PIPEGEN_NAME_MAP` only.
-2. **Keypoint order and names:** COCO-17 assumed.
-3. **Coordinates:** pixels assumed. If normalised [0, 1], scale them in `_from_pipegen()`; One Euro `beta` and the blur box work in pixels.
-4. **Timestamp units and origin:** seconds assumed. DeepStream PTS is often in nanoseconds, so convert.
-5. **Missing-keypoint encoding:** absent, `[0,0,0]` and low confidence are all handled.
-6. **Confidence scale:** 0–1 probabilities assumed (not logits).
-7. **Granularity:** one object per frame assumed. If PipeGen emits one object per person, group them by frame in `_from_pipegen()`/`read_keypoints()`.
-8. **Transport:** stdout, a growing file, a folder of per-frame files and MQTT are all supported; confirm which PipeGen uses and the topic name.
-9. **Video/keypoint time alignment** for `--video` evidence frames.
+## Vision-side (PipeGen) assumptions still to verify on real output
+All of these are handled in `io.py`. Run one sample through `python -m logic.demo --source file:sample.jsonl --log-level INFO` and read the detected-layout line.
+1. **Layout and field names:** which of the supported layouts PipeGen emits. If none fits, extend `auto_adapt`.
+2. **Keypoint set and order:** COCO-17 assumed; otherwise pass `--kp-map`.
+3. **Coordinates:** pixels or normalised. Normalised needs `--frame-size` unless the object carries width/height.
+4. **Timestamp field and unit:** inferred from the median frame delta. Check the logged unit (DeepStream PTS is usually ns).
+5. **Confidence scale:** 0–1 probabilities assumed, not logits.
+6. **Granularity:** one object per frame with all persons assumed. If PipeGen emits one object per person, they must be grouped by frame in `io.py`.
+7. **Transport:** file, folder, stdout or MQTT, and the topic name.
+8. **Video/keypoint time alignment** for evidence frames.
 
-## Tier 2 status: done
-
-| Acceptance check | Result |
-|---|---|
-| Calibrated walking speed within 10 % | ✔ within ~0.2 % on synthetic walks at 0.6–1.3 m/s, 160 and 400 px/m |
-| Cadence within 5 steps/min | ✔ within ~1 spm (85–115 spm) |
-| Asymmetric walk (left steps 15 % slower, true SI 13.95) within 3 points | ✔ 11.9–15.6 over 8 seeds at 160 px/m and 12.5–15.0 at 400 px/m; tested on 6 seeds |
-| Symmetric walk | SI ≤ 2.4, step CV ≤ 3.3 % (true 0) |
-| TUG phases found on ≥ 90 % of synthetic TUG clips | ✔ 20/20; TUG time within 0.02 s and sit-to-stand within 0.02 s of truth |
-| Risk handles missing metrics | ✔ renormalised weights; no metrics gives `score=None, band=None` |
-| `pytest` | 132 passed, 0 skipped |
-
-- **Gait (`gait.py`):**
-  - Steady windows need: hip speed > 0.3 L_ref/s, rolling speed CV ≤ 0.25 over 1 s, phi < 25°, one direction, no data hole > 0.3 s, ≥ 1.5 s after trimming 0.3 s from each end.
-  - Speed is distance over time across all windows.
-  - Steps: `find_peaks` on |A_L,x − A_R,x| (distance 0.25 s × fps_est, prominence 0.1 L_ref), then a least-squares parabola over ±0.1 s around each peak.
-  - Peaks whose fit window is cut by the window edge are dropped. Intervals are pooled across windows, and each interval is assigned to the side that leads at its closing peak.
-- **Live gait in `run.py`:** recomputed every 2 s of frame time over a 60 s buffer and published to `safestride/risk` when a new steady window ends. At end of input, the session summary (the one with the most steps) updates the `--person` baseline in `logic/baselines.json`. Gait costs about 2.5× CPU: the runner drops from ~11k to ~4k frames/s, still far above 30 fps.
-- **TUG (`tug.py`):**
-  - y_n uses the 2nd/98th percentiles of hip y, and the hip must travel ≥ 0.4 L_ref.
-  - The turn is the first reversal of hip vx (central difference ±0.25 s) with hysteresis. The threshold is max(0.2 L_ref/s, 0.5 × median walking speed), so the TURN phase spans the slow-down and re-acceleration, not just the instant of reversal.
-- **Risk (`risk.py`):**
-  - Formulae, ref/bad values and weights are as specified, with the guide's worked example reproduced in a test (S = 0.50, MODERATE).
-  - Drift uses the literal formula, comparing v_t with 0.8 × b_t where b_t already includes v_t (slightly less sensitive than comparing with b_(t−1)).
-  - z uses the previous ≥ 5 sessions (ddof = 1).
-  - The values are illustrative design choices, not a validated clinical model.
-
-### Changes to Tier 1 modules (each proven by a failing Tier 2 test)
-1. **Bug: outlier limit across dropped frames** (`filters.py`). The fixed per-frame jump limit (0.5 L_ref) rejected genuinely fast ankles after 2–3 dropped frames, smearing step peaks. The limit now scales with the time since the last accepted sample, relative to the median of the last 15 frame intervals (estimated from timestamps, so no fps is assumed). The fall benchmark is unchanged (test mean delay now 3.51 s, max 3.60 s).
-2. **`CleanFrame.raw`** (`filters.py`): the repaired but unsmoothed keypoints. Gait uses them for ankles because the One Euro filter's speed-dependent lag shifted left- and right-led step peaks differently. On a noise-free asymmetric walk, SI read 8.4 instead of 13.95. The fall path still uses the smoothed keypoints.
-3. **Synthetic walking model** (`synth.py`): knee flexion now goes as cos³ with compensating thigh flexion, and the gait phase runs at the mean rate within ±0.6 rad of each step peak. The old model put spurious separation peaks at mid-swing and placed the left/right rate change exactly at the peaks, which made the "true" step times ill-defined.
-
-## Tier 3 status: done
-- **`overlay.py`:** the OpenCV view (skeleton coloured by fall state, torso angle, hip speed, risk band, last-alert banner) runs the full decision layer. It works on a video file plus JSONL, aligning the first keypoint frame with the video start, and on a live camera index with keypoints from any `read_keypoints` source in a background thread. `--save` writes the overlay video with every person blurred first; a test checks the saved video and the blurred evidence frame. The window itself is not tested here (headless runs only). On the demo laptop the PipeGen app probably owns the camera.
-- **`compare_precision.py`:** aligns two runs by timestamp (nearest within half the median frame interval) and reports, as Markdown:
-  - normalised keypoint error, overall and per keypoint;
-  - the confidence-drop (> 0.2) fraction;
-  - alerts and labelled falls caught per run.
-
-  It is tested on a synthetic perturbation with known error (σ = 0.02 L gives a mean error of 0.025 L, within 15 %). It needs real FP16 and INT8 recordings of the same clips; it cannot use the same live run.
-- **Other changes:** `privacy.blur_people` was factored out of `save_blurred` for reuse by the overlay (behaviour unchanged). `pytest` now gives 137 passed.
-
-## Not done yet
-- No real recordings evaluated yet. Everything above is synthetic.
-- The live overlay window and a real MQTT broker were not exercised: no display test and no Mosquitto on this Windows dev machine. MQTT was tested with a fake client and an unreachable broker only.
+## Real-data handoff log
+No real sample received yet.
