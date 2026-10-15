@@ -1,5 +1,7 @@
 # SafeStride
 
+> **Note on the repository name:** `CRA010` is a **placeholder** participant ID. We were not sent a participant ID, and the organizers told us none was needed, but the submission form requires the `CraftifAIHackathon_<ID>` format.
+
 SafeStride does fall detection and gait-based fall-risk screening from one camera, on an edge GPU. It is built for the Embedded SF × CraftifAI hackathon (Problem #2, Track A).
 
 The perception pipeline is built, compiled and run in **CraftifAI PipeGen**: video → yolo11s-pose (17 COCO keypoints) → person tracking → fall detection → JSON metadata + live display, with a TensorRT FP16 engine. The `logic/` package then turns the keypoints into:

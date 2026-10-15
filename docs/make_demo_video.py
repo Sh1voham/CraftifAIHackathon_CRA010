@@ -134,7 +134,7 @@ def main() -> None:
     card([("Honest limits", 1.3), ("Single 2D camera, narrow view; thresholds are starting values", 0.75),
           ("Tested on synthetic clips + our recording; more real staged falls needed", 0.75),
           ("Screening aid, not a medical device", 0.75),
-          ("github.com/Sh1voham/CraftifAIHackathon_SafeStride", 0.8)], 4, vw)
+          ("github.com/Sh1voham/CraftifAIHackathon_CRA010", 0.8)], 4, vw)
     vw.release()
     print(f"wrote {OUT}")
 
