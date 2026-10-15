@@ -1,7 +1,23 @@
 # SafeStride decision layer — engineering notes
 
-Status as of 15 Oct 2026. All numbers below are on **synthetic** data unless
-stated otherwise. SafeStride is a screening prototype, not a medical device.
+## Status at 18:54 IST, 15 Oct 2026 (start of prompt 2)
+1. **Built and committed:** config, io (file/stdin/tail/folder/MQTT readers), filters, features, fall (incl. PROLONGED_DOWN), pipeline, incidents, mqtt_out, privacy, run, synth, eval (+tune/bench), gait, tug, risk, overlay, compare_precision.
+2. **Tests:** `python -m pytest logic/tests -q` → 137 passed (~90 s).
+3. **Synthetic benchmark (test split):** recall 1.0, 0 false alarms, mean fast-fall delay 3.51 s; throughput ~11k frames/s.
+4. **Tier 2 (gait/TUG/risk):** done and tested at 160 and 400 px/m.
+5. **Tier 3 (overlay, FP16/INT8 comparison):** done.
+6. **Gaps vs prompt 2:**
+   - no `auto_adapt` layout detection, no `--ts-unit`/`--coords`/`--kp-map`;
+   - no `demo.py`/`--selftest`;
+   - no filename labels or margin report for real clips;
+   - no docs set (ARCHITECTURE, PROJECT_DESCRIPTION, RESULTS, DEMO_SCRIPT);
+   - the PROLONGED_DOWN rules differ slightly from the new spec;
+   - synth class names differ.
+7. **Untested here:** a real MQTT broker (no Mosquitto on this Windows machine) and the live camera window.
+8. **No real PipeGen data yet.**
+
+All numbers below are on **synthetic** data unless stated otherwise.
+SafeStride is a screening prototype, not a medical device.
 
 ## Tier 1 status: done
 
