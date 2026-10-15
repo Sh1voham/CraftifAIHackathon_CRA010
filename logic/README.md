@@ -12,6 +12,7 @@ keypoints (JSONL / stdin / folder / MQTT)
   -> features.FeatureTracker    (torso angle phi, hip drop speed v, hip height h, AR)
   -> fall.FallDetector          (STANDING/FALLING/DOWN/FALL_CONFIRMED + PROLONGED_DOWN)
   -> run.Runner                 (incidents.jsonl, MQTT safestride/alerts, stdout, blurred evidence frame)
+  -> gait / tug / risk          (MQTT safestride/risk: speed, cadence, CV, symmetry, TUG, risk band, drift)
 ```
 
 ## Install
@@ -67,6 +68,21 @@ python -m logic.run --input mqtt://localhost:1883/pipegen/keypoints --mqtt local
 Add `--record session.jsonl` to save every received frame in replay format. You can label those recordings later and use them with `eval`.
 
 **Demo note:** lying on the floor for 10 s or more raises `PROLONGED_DOWN` even without a fast fall. Don't lie down deliberately for more than a few seconds unless that is the point of the demo.
+
+## Gait, TUG and risk band
+
+`run.py` also computes walking speed, cadence, step-time CV, left/right symmetry and (when a sit–walk–turn–sit sequence is seen) TUG time. It publishes a LOW / MODERATE / HIGH risk band to `safestride/risk`.
+
+```bash
+python -m logic.run --input - --mqtt localhost:1883 --person alice --calib 412,700,892,700,3.0
+```
+
+- `--calib x1,y1,x2,y2,metres` gives two floor-marker pixels a known distance apart. Without it, speed uses a rough torso = 0.5 m scale and is reported with `calibrated=false`.
+- `--person` keeps a walking-speed baseline in `logic/baselines.json` and flags drift: speed below 0.8 × baseline, or z < −2 over the last 5+ sessions.
+- `--no-gait` turns this off.
+- Walk side-on across the frame. Turns are discarded, and steps are pooled across passes, so several short passes work.
+
+The scoring thresholds are illustrative design choices, not a validated clinical model.
 
 ## Synthetic data, evaluation and tuning
 

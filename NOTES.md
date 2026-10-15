@@ -7,7 +7,7 @@ stated otherwise. SafeStride is a screening prototype, not a medical device.
 
 | Acceptance check | Result |
 |---|---|
-| `pytest` | 96 passed, 3 skipped (the gait/tug/risk wall-clock checks skip until those modules exist) |
+| `pytest` | 96 passed, 3 skipped at the Tier 1 gate (the gait/tug/risk wall-clock checks skipped until those modules existed) |
 | Synthetic benchmark (200 clips, seed 0, 70/30 stratified split) | test: TP 27, FN 0, FP 0, TN 30; recall 1.000, precision 1.000, F1 1.000, 0 false alarms (0.0/h) |
 | Fast-fall alert delay after fall start | test mean 3.53 s, max 3.80 s (train mean 3.53 s, max 3.75 s); target 3.0–3.6 s mean ✔ |
 | Slow-lowering `PROLONGED_DOWN` delay after descent start | test mean 13.3 s (≈4 s descent + 10 s hold) |
@@ -81,6 +81,38 @@ recordings take priority.
 8. **Transport:** stdout, a growing file, a folder of per-frame files and MQTT are all supported; confirm which PipeGen uses and the topic name.
 9. **Video/keypoint time alignment** for `--video` evidence frames.
 
+## Tier 2 status: done
+
+| Acceptance check | Result |
+|---|---|
+| Calibrated walking speed within 10 % | ✔ within ~0.2 % on synthetic walks at 0.6–1.3 m/s, 160 and 400 px/m |
+| Cadence within 5 steps/min | ✔ within ~1 spm (85–115 spm) |
+| Asymmetric walk (left steps 15 % slower, true SI 13.95) within 3 points | ✔ 11.9–15.6 over 8 seeds at 160 px/m and 12.5–15.0 at 400 px/m; tested on 6 seeds |
+| Symmetric walk | SI ≤ 2.4, step CV ≤ 3.3 % (true 0) |
+| TUG phases found on ≥ 90 % of synthetic TUG clips | ✔ 20/20; TUG time within 0.02 s and sit-to-stand within 0.02 s of truth |
+| Risk handles missing metrics | ✔ renormalised weights; no metrics gives `score=None, band=None` |
+| `pytest` | 132 passed, 0 skipped |
+
+- **Gait (`gait.py`):**
+  - Steady windows need: hip speed > 0.3 L_ref/s, rolling speed CV ≤ 0.25 over 1 s, phi < 25°, one direction, no data hole > 0.3 s, ≥ 1.5 s after trimming 0.3 s from each end.
+  - Speed is distance over time across all windows.
+  - Steps: `find_peaks` on |A_L,x − A_R,x| (distance 0.25 s × fps_est, prominence 0.1 L_ref), then a least-squares parabola over ±0.1 s around each peak.
+  - Peaks whose fit window is cut by the window edge are dropped. Intervals are pooled across windows, and each interval is assigned to the side that leads at its closing peak.
+- **Live gait in `run.py`:** recomputed every 2 s of frame time over a 60 s buffer and published to `safestride/risk` when a new steady window ends. At end of input, the session summary (the one with the most steps) updates the `--person` baseline in `logic/baselines.json`. Gait costs about 2.5× CPU: the runner drops from ~11k to ~4k frames/s, still far above 30 fps.
+- **TUG (`tug.py`):**
+  - y_n uses the 2nd/98th percentiles of hip y, and the hip must travel ≥ 0.4 L_ref.
+  - The turn is the first reversal of hip vx (central difference ±0.25 s) with hysteresis. The threshold is max(0.2 L_ref/s, 0.5 × median walking speed), so the TURN phase spans the slow-down and re-acceleration, not just the instant of reversal.
+- **Risk (`risk.py`):**
+  - Formulae, ref/bad values and weights are as specified, with the guide's worked example reproduced in a test (S = 0.50, MODERATE).
+  - Drift uses the literal formula, comparing v_t with 0.8 × b_t where b_t already includes v_t (slightly less sensitive than comparing with b_(t−1)).
+  - z uses the previous ≥ 5 sessions (ddof = 1).
+  - The values are illustrative design choices, not a validated clinical model.
+
+### Changes to Tier 1 modules (each proven by a failing Tier 2 test)
+1. **Bug: outlier limit across dropped frames** (`filters.py`). The fixed per-frame jump limit (0.5 L_ref) rejected genuinely fast ankles after 2–3 dropped frames, smearing step peaks. The limit now scales with the time since the last accepted sample, relative to the median of the last 15 frame intervals (estimated from timestamps, so no fps is assumed). The fall benchmark is unchanged (test mean delay now 3.51 s, max 3.60 s).
+2. **`CleanFrame.raw`** (`filters.py`): the repaired but unsmoothed keypoints. Gait uses them for ankles because the One Euro filter's speed-dependent lag shifted left- and right-led step peaks differently. On a noise-free asymmetric walk, SI read 8.4 instead of 13.95. The fall path still uses the smoothed keypoints.
+3. **Synthetic walking model** (`synth.py`): knee flexion now goes as cos³ with compensating thigh flexion, and the gait phase runs at the mean rate within ±0.6 rad of each step peak. The old model put spurious separation peaks at mid-swing and placed the left/right rate change exactly at the peaks, which made the "true" step times ill-defined.
+
 ## Not done yet
-- Tier 2 (gait, TUG, risk) and Tier 3 (overlay, precision comparison): see later sections when added.
+- Tier 3 (overlay, precision comparison): see below when added.
 - No real recordings evaluated yet.
