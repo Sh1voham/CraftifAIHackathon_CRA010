@@ -189,3 +189,57 @@ def test_cli_record_writes_replayable_frames(tmp_path) -> None:
                input=clip.read_bytes())
     assert res.returncode == 0, res.stderr.decode()
     assert rec.read_bytes() == clip.read_bytes()
+
+
+def _gait_runner(clip_frames, **kw):
+    from logic.run import GaitMonitor
+
+    fake = FakePub()
+    r = Runner(Config(), WallClock(datetime.fromisoformat(START)), publisher=MqttPublisher("h", 1, MqttCfg(),
+               client=fake), gait=GaitMonitor(Config(), kw.pop("calib", None)), **kw)
+    for f in clip_frames:
+        r.process(f)
+    r.finish()
+    return r, fake
+
+
+def test_runner_publishes_gait_risk_summaries(tmp_path) -> None:
+    from logic.risk import BaselineStore
+    from logic.synth import make_walk
+
+    clip = make_walk(2, speed=0.8, cadence=95, duration=12.0)
+    store = BaselineStore(tmp_path / "base.json", Config().risk)
+    r, fake = _gait_runner(clip.frames, baselines=store, person="alice")
+    risk_msgs = [p for t, p, _ in fake.sent if t == "safestride/risk"]
+    assert risk_msgs and risk_msgs == r.risk_records
+    final = risk_msgs[-1]
+    assert final["final"] and final["person"] == "alice" and final["band"] in ("LOW", "MODERATE", "HIGH")
+    assert final["walk_speed_mps"] == pytest.approx(0.8, rel=0.1) and final["calibrated"] is False
+    assert final["baseline_mps"] == final["walk_speed_mps"] and final["drift_alert"] is False
+    assert json.loads((tmp_path / "base.json").read_text())["alice"]["history"]
+
+
+def test_runner_gait_includes_tug_and_ignores_falls() -> None:
+    from logic.synth import make_tug
+
+    r, _ = _gait_runner(make_tug(3).frames)
+    assert r.risk_records[-1]["tug_s"] is not None and r.risk_records[-1]["final"]
+    r2, fake = _gait_runner(scripted_fall())
+    assert r2.risk_records == [] and [p["event"] for t, p, _ in fake.sent if t == "safestride/alerts"] == \
+           ["FALL_CONFIRMED"]
+
+
+def test_cli_gait_with_calibration_and_baseline(tmp_path) -> None:
+    from logic.synth import make_walk
+
+    clip = make_walk(4, speed=1.0, cadence=100, duration=9.0)
+    path = tmp_path / "walk.jsonl"
+    write_jsonl(path, clip.frames)
+    m = clip.label["marker_px"]
+    base = tmp_path / "b.json"
+    res = _cli(["--input", str(path), "--incidents", str(tmp_path / "i.jsonl"), "--person", "bob",
+                "--baselines", str(base), "--calib", f"{m[0]},500,{m[1]},500,3.0"])
+    assert res.returncode == 0, res.stderr.decode()
+    assert b"(session)" in res.stderr and b"risk" in res.stderr
+    hist = json.loads(base.read_text())["bob"]["history"]
+    assert hist[0] == pytest.approx(1.0, rel=0.1)
