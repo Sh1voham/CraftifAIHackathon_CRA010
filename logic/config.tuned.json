@@ -1,0 +1,96 @@
+{
+  "filters": {
+    "c_min": 0.3,
+    "max_gap_frames": 5,
+    "outlier_jump_Ls": 0.5,
+    "Lref_window_s": 2.0,
+    "one_euro": {
+      "min_cutoff": 1.0,
+      "beta": 0.02,
+      "d_cutoff": 1.0,
+      "reset_gap_s": 1.0
+    }
+  },
+  "features": {
+    "drop_window_s": 0.25,
+    "drop_window_max_s": 0.75,
+    "floor_upright_phi_deg": 20.0,
+    "floor_learn_s": 5.0,
+    "floor_min_learn_s": 0.5,
+    "floor_percentile": 90.0,
+    "floor_min_ankle_fraction": 0.3,
+    "floor_fallback_Ls": 1.2,
+    "upright_dt_cap_s": 0.2,
+    "y_floor_override": null
+  },
+  "fall": {
+    "V_DROP": 1.2,
+    "PHI_DOWN": 60.0,
+    "H_LOW": 0.5,
+    "T_HOLD": 3.0,
+    "PHI_RECOVER": 30.0,
+    "T_PROLONGED": 10.0,
+    "recover_hold_s": 2.0,
+    "confirmed_recover_hold_s": 5.0,
+    "falling_timeout_s": 1.5,
+    "alert_cooldown_s": 30.0,
+    "lost_person_grace_s": 2.0,
+    "down_break_tolerance_s": 0.3,
+    "conf_w_v": 0.3,
+    "conf_w_phi": 0.35,
+    "conf_w_t": 0.35,
+    "conf_v_scale": 2.0,
+    "conf_phi_lo_deg": 30.0,
+    "conf_phi_span_deg": 60.0
+  },
+  "io": {
+    "poll_s": 0.05,
+    "file_settle_s": 1.0
+  },
+  "mqtt": {
+    "topic_alerts": "safestride/alerts",
+    "topic_risk": "safestride/risk",
+    "topic_status": "safestride/status",
+    "qos": 1,
+    "heartbeat_s": 5.0,
+    "keepalive_s": 30,
+    "reconnect_min_s": 1,
+    "reconnect_max_s": 30,
+    "max_queued": 1000
+  },
+  "privacy": {
+    "expand_frac": 0.15,
+    "kernel": 51,
+    "sigma": 20.0
+  },
+  "eval": {
+    "match_window_s": 20.0,
+    "test_fraction": 0.3,
+    "split_seed": 0,
+    "grid_V_DROP": [
+      0.8,
+      1.0,
+      1.2,
+      1.5,
+      1.8
+    ],
+    "grid_PHI_DOWN": [
+      50.0,
+      55.0,
+      60.0,
+      65.0,
+      70.0
+    ],
+    "grid_H_LOW": [
+      0.3,
+      0.4,
+      0.5,
+      0.7
+    ],
+    "grid_T_HOLD": [
+      2.5,
+      3.0,
+      3.5
+    ]
+  }
+}
