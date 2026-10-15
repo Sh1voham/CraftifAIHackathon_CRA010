@@ -9,15 +9,14 @@ stated otherwise. SafeStride is a screening prototype, not a medical device.
 |---|---|
 | `pytest` | 96 passed, 3 skipped at the Tier 1 gate (the gait/tug/risk wall-clock checks skipped until those modules existed) |
 | Synthetic benchmark (200 clips, seed 0, 70/30 stratified split) | test: TP 27, FN 0, FP 0, TN 30; recall 1.000, precision 1.000, F1 1.000, 0 false alarms (0.0/h) |
-| Fast-fall alert delay after fall start | test mean 3.53 s, max 3.80 s (train mean 3.53 s, max 3.75 s); target 3.0–3.6 s mean ✔ |
+| Fast-fall alert delay after fall start | test mean 3.51 s, max 3.60 s (train mean 3.51 s, max 3.63 s); target 3.0–3.6 s mean ✔ |
 | Slow-lowering `PROLONGED_DOWN` delay after descent start | test mean 13.3 s (≈4 s descent + 10 s hold) |
-| Throughput (one core, `--bench`) | 8,400 frames/s for pipeline + detector; JSON parsing 18,700 frames/s (target ≥ 2000) ✔ |
+| Throughput (one core, `--bench`) | ~11,500 frames/s for pipeline + detector (8,400 on an earlier run; timings vary); JSON parsing ~23,000 frames/s; full runner with gait ~4,000 frames/s (target ≥ 2000) ✔ |
 | Byte-identical replay | ✔ (`test_cli_replay_is_byte_identical`, with fixed `--start-wallclock`) |
 | `--input -` stdin mode | ✔ (subprocess test, including an unreachable MQTT broker) |
 | No wall clock in algorithm modules | ✔ (`test_static.py` scans filters, features, fall, gait, tug, risk) |
 
-The max fast-fall delay (3.80 s) is above 3.6 s, but the criterion is on the
-mean. Delay ≈ time to reach DOWN (~0.45–0.6 s of the ~0.5–0.8 s descent) + `T_HOLD`
+Numbers are from the final code (after the Tier 2 outlier fix; before it, test mean 3.53 s and max 3.80 s). Delay ≈ time to reach DOWN (~0.45–0.6 s of the ~0.5–0.8 s descent) + `T_HOLD`
 (3.0 s) + one frame. Live latency also adds the gap-repair buffer (≤5 frames,
 ~0.17 s) plus PipeGen inference.
 
@@ -27,7 +26,7 @@ recordings take priority.
 
 ### Tuning (`python -m logic.eval --data data/synth --tune`)
 - Grid: V_DROP {0.8, 1.0, 1.2, 1.5, 1.8} × PHI_DOWN {50…70} × H_LOW {0.3, 0.4, 0.5, 0.7} × T_HOLD {2.5, 3.0, 3.5} = 300 combinations, ~26 s.
-- 180/300 combinations have zero train false alarms. **All 120 failures come from V_DROP ≤ 1.0**, which alerts on `lie_down_slow/brief` (a deliberate lie-down for 4–6 s): the kneel-to-floor stage is fast enough to start FALLING. Keep V_DROP ≥ 1.2 unless real data says otherwise.
+- 180/300 combinations have zero train false alarms (unchanged on the final code). **All 120 failures come from V_DROP ≤ 1.0**, which alerts on `lie_down_slow/brief` (a deliberate lie-down for 4–6 s): the kneel-to-floor stage is fast enough to start FALLING. Keep V_DROP ≥ 1.2 unless real data says otherwise.
 - The winner equals the defaults (V_DROP 1.2, PHI_DOWN 60, H_LOW 0.5, T_HOLD 3.0); ties are broken toward the defaults. Test F1 1.000. `logic/config.tuned.json` therefore matches `config.json`.
 
 ## Final parameter values (`logic/config.json`)
