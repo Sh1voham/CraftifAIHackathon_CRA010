@@ -108,7 +108,12 @@
   "io": {
     "poll_s": 0.05,
     "file_settle_s": 1.0,
-    "video_fps_fallback": 30.0
+    "video_fps_fallback": 30.0,
+    "default_fps": 30.0,
+    "ts_probe_frames": 10,
+    "frame_dt_min_s": 0.005,
+    "frame_dt_max_s": 0.5,
+    "norm_coord_max": 1.5
   },
   "mqtt": {
     "topic_alerts": "safestride/alerts",

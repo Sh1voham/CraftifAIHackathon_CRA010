@@ -7,8 +7,8 @@ import time
 from types import SimpleNamespace
 
 from logic.io import (
-    Frame, Person, TrackState, frame_from_dict, mqtt_objects, read_jsonl, read_keypoints,
-    select_person, tail_folder, tail_jsonl, write_jsonl,
+    Frame, Person, TrackState, folder_objects, frame_from_dict, mqtt_objects, read_jsonl, read_keypoints,
+    select_person, tail_objects, write_jsonl,
 )
 
 
@@ -72,7 +72,7 @@ def test_tail_jsonl_follows_growing_file_with_partial_lines(tmp_path) -> None:
 
     th = threading.Thread(target=writer)
     th.start()
-    got = list(tail_jsonl(path, poll_s=0.005, idle_timeout_s=0.5))
+    got = list(tail_objects(path, poll_s=0.005, idle_timeout_s=0.5))
     th.join()
     assert [o["t"] for o in got] == [i * 0.1 for i in range(6)]
 
@@ -81,10 +81,10 @@ def test_read_keypoints_follow_mode(tmp_path) -> None:
     path = tmp_path / "live.jsonl"
     write_jsonl(path, [Frame(t=1.0), Frame(t=2.0)])
     frames = list(read_keypoints(path, follow=True, poll_s=0.005, idle_timeout_s=0.2))
-    assert [f.t for f in frames] == [1.0, 2.0]
+    assert [f.t for f in frames] == [0.0, 1.0]  # time is normalised to start at zero
 
 
-def test_tail_folder_in_order_and_waits_for_unfinished_file(tmp_path) -> None:
+def test_watch_folder_in_order_and_waits_for_unfinished_file(tmp_path) -> None:
     def writer() -> None:
         for i in range(5):
             text = json.dumps({"t": float(i), "persons": []})
@@ -101,12 +101,12 @@ def test_tail_folder_in_order_and_waits_for_unfinished_file(tmp_path) -> None:
     assert [f.t for f in frames] == [0.0, 1.0, 2.0, 3.0, 4.0]
 
 
-def test_tail_folder_skips_permanently_broken_file(tmp_path, caplog) -> None:
+def test_folder_skips_permanently_broken_file(tmp_path, caplog) -> None:
     (tmp_path / "a.json").write_text('{"t": 0}', encoding="utf-8")
     (tmp_path / "b.json").write_text('{"t": ', encoding="utf-8")
     (tmp_path / "c.json").write_text('[{"t": 2}, {"t": 3}]', encoding="utf-8")
     with caplog.at_level(logging.WARNING):
-        got = list(tail_folder(tmp_path, poll_s=0.005, idle_timeout_s=0.2, settle_s=0.03))
+        got = list(folder_objects(tmp_path, poll_s=0.005, idle_timeout_s=0.2, settle_s=0.03))
     assert [o["t"] for o in got] == [0, 2, 3]
     assert "b.json" in caplog.text
 

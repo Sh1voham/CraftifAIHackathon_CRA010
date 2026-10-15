@@ -23,7 +23,7 @@ import numpy as np
 from logic.config import Config, load_config
 from logic.fall import ALERT_KINDS, State
 from logic.incidents import IncidentLog, WallClock
-from logic.io import KEYPOINT_NAMES, Frame, read_keypoints
+from logic.io import KEYPOINT_NAMES, Frame, add_adapter_args, opts_from_args, read_keypoints
 from logic.mqtt_out import MqttPublisher
 from logic.privacy import blur_people
 from logic.run import GaitMonitor, Runner
@@ -180,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default="pose-fp16")
     ap.add_argument("--save", default=None, help="write the overlay video here (people are blurred)")
     ap.add_argument("--headless", action="store_true", help="do not open a window")
+    add_adapter_args(ap)
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -194,7 +195,8 @@ def main(argv: list[str] | None = None) -> int:
     runner = Runner(cfg, clock, args.camera_name, args.model, incidents, publisher,
                     frame_source=lambda _t: current.get("img"), blur_dir=args.blur_dir, gait=GaitMonitor(cfg))
     state = OverlayState(runner)
-    frames = read_keypoints(args.input, poll_s=cfg.io.poll_s, settle_s=cfg.io.file_settle_s)
+    frames = read_keypoints(args.input, poll_s=cfg.io.poll_s, settle_s=cfg.io.file_settle_s,
+                            opts=opts_from_args(args, cfg.io))
     cap = cv2.VideoCapture(args.video if args.video else args.camera)
     if not cap.isOpened():
         raise OSError(f"cannot open {'video ' + args.video if args.video else f'camera {args.camera}'}")

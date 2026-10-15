@@ -147,6 +147,11 @@ class IoCfg:
     poll_s: float = 0.05
     file_settle_s: float = 1.0  # give up on an unparseable per-frame file after this
     video_fps_fallback: float = 30.0  # only for writing overlay video when the source reports no fps
+    default_fps: float = 30.0  # only for inputs with frame numbers instead of timestamps (--fps)
+    ts_probe_frames: int = 10  # frames inspected to infer the timestamp unit and coordinate mode
+    frame_dt_min_s: float = 0.005  # plausible frame interval range used to infer the timestamp unit
+    frame_dt_max_s: float = 0.5
+    norm_coord_max: float = 1.5  # all keypoint coordinates within [0, this] -> treated as normalised
 
 
 @dataclass(frozen=True)

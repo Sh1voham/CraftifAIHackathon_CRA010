@@ -14,7 +14,7 @@ import pytest
 from logic.config import Config, MqttCfg
 from logic.fall import Event
 from logic.incidents import IncidentLog, WallClock, event_record
-from logic.io import write_jsonl
+from logic.io import read_jsonl, write_jsonl
 from logic.mqtt_out import MqttPublisher
 from logic.run import Runner, VideoFrames
 from logic.tests.fixtures import scripted_fall, scripted_sit
@@ -188,7 +188,10 @@ def test_cli_record_writes_replayable_frames(tmp_path) -> None:
     res = _cli(["--input", "-", "--incidents", str(tmp_path / "i.jsonl"), "--record", str(rec)],
                input=clip.read_bytes())
     assert res.returncode == 0, res.stderr.decode()
-    assert rec.read_bytes() == clip.read_bytes()
+    back = list(read_jsonl(rec))
+    assert len(back) == len(frames)
+    assert [round(f.t, 6) for f in back] == [round(f.t - frames[0].t, 6) for f in frames]  # normalised time
+    assert back[5].persons == frames[5].persons
 
 
 def _gait_runner(clip_frames, **kw):

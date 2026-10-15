@@ -24,7 +24,7 @@ from logic.config import Config, load_config
 from logic.fall import ALERT_KINDS, Event, FallDetector
 from logic.gait import Calibration, GaitSample, GaitSummary, analyze_gait, sample_from
 from logic.incidents import IncidentLog, WallClock, event_record
-from logic.io import Frame, read_keypoints, write_frames
+from logic.io import Frame, add_adapter_args, opts_from_args, read_keypoints, write_frames
 from logic.mqtt_out import MqttPublisher
 from logic.pipeline import FramePipeline, Step
 from logic.privacy import save_blurred
@@ -254,6 +254,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--person", default=None, help="person label for the walking-speed baseline")
     ap.add_argument("--baselines", default="logic/baselines.json", help="baseline store (JSON)")
     ap.add_argument("--log-level", default="INFO")
+    add_adapter_args(ap)
     return ap.parse_args(argv)
 
 
@@ -298,7 +299,8 @@ def main(argv: list[str] | None = None) -> int:
     next_beat = wall0
     try:
         for frame in read_keypoints(args.input, follow=args.follow, poll_s=cfg.io.poll_s,
-                                    idle_timeout_s=args.idle_timeout, settle_s=cfg.io.file_settle_s):
+                                    idle_timeout_s=args.idle_timeout, settle_s=cfg.io.file_settle_s,
+                                    opts=opts_from_args(args, cfg.io)):
             if args.realtime:
                 t0 = frame.t if t0 is None else t0
                 lag = (frame.t - t0) - (time.monotonic() - wall0)
