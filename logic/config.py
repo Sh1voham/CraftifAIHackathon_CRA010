@@ -81,6 +81,7 @@ class IoCfg:
     """Live transport settings."""
 
     poll_s: float = 0.05
+    file_settle_s: float = 1.0  # give up on an unparseable per-frame file after this
 
 
 @dataclass(frozen=True)

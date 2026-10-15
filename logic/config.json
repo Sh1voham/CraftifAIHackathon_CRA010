@@ -44,7 +44,8 @@
     "conf_phi_span_deg": 60.0
   },
   "io": {
-    "poll_s": 0.05
+    "poll_s": 0.05,
+    "file_settle_s": 1.0
   },
   "mqtt": {
     "topic_alerts": "safestride/alerts",
