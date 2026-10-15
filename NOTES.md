@@ -9,7 +9,7 @@ All numbers are on **synthetic** data unless stated otherwise. SafeStride is a s
    - Tier 3: overlay, compare_precision.
    - Prompt 2: demo (`--selftest`), make_results.
    - Docs: README, ARCHITECTURE, PROJECT_DESCRIPTION, RESULTS, DEMO_SCRIPT.
-2. **Tests:** `python -m pytest logic/tests -q`. The final count is in the last commit message and the final report.
+2. **Tests:** `python -m pytest logic/tests -q` → 175 passed (about 2 min), also in a fresh clone.
 3. **Synthetic held-out test split:** every expected event raised, 0 false alarms, fast-fall delay mean 3.51 s (max 3.60). PROLONGED_DOWN fires on all `lie_slow_stay` clips and on no `lie_slow_recover` clip.
 4. **Throughput:** ~11k frames/s for the fall path, ~3.5k with gait (one core).
 5. **Not exercised here:** a real MQTT broker (only fakes and an unreachable broker; `--selftest` checks delivery when one exists) and the OpenCV window (headless tests only).
@@ -38,7 +38,7 @@ All were closed in this session.
 | Each `auto_adapt` layout has a unit test | ✔ `test_adapt.py` (layouts a–e, bbox forms, units s/ms/us/ns, frame numbers, normalised coords, kp_map, truncation, folder, MQTT) |
 | No wall clock in filters/features/fall/gait/tug/risk | ✔ `test_static.py` |
 | Gait: speed ±10 %, cadence ±5 spm, SI ±3 pts at 160 and 400 px/m; TUG ≥ 90 % | ✔ `test_gait.py`, `test_tug.py` (TUG 20/20) |
-| Fresh clone: install + tests | see final report |
+| Fresh clone: install + tests | ✔ fresh clone on Windows at 19:22 IST: `pip install -r logic/requirements.txt` then 175 passed; `--selftest` PASS; working tree clean afterwards |
 
 **Synthetic data is easy.** Every class separates perfectly, which says the logic is wired correctly, not that it works on people.
 
