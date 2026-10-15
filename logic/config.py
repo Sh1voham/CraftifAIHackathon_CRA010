@@ -183,6 +183,8 @@ class EvalCfg:
     grid_PHI_DOWN: tuple[float, ...] = (50.0, 55.0, 60.0, 65.0, 70.0)
     grid_H_LOW: tuple[float, ...] = (0.3, 0.4, 0.5, 0.7)
     grid_T_HOLD: tuple[float, ...] = (2.5, 3.0, 3.5)
+    precision_align_frac: float = 0.5  # align frames within this fraction of the median frame interval
+    precision_conf_drop: float = 0.2  # confidence drop counted by compare_precision
 
 
 @dataclass(frozen=True)
