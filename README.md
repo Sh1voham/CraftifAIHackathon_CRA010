@@ -13,7 +13,7 @@ SafeStride is a screening aid, not a medical device.
 
 ## Demo video
 
-[docs/demo_video.mp4](docs/demo_video.mp4) (78 s): the PipeGen build, the TensorRT report, the live run, then the decision layer raising a fall alert and showing the risk band. It was rebuilt from our screenshots and replay with `python docs/make_demo_video.py`.
+[docs/demo_video.mp4](docs/demo_video.mp4) (1 min 46 s): the overview, PipeGen's measured numbers, the Pipeline IR, the live DeepStream run on our clip, the decision layer raising a fall alert, and the gait and risk band.
 
 ## Running live (PipeGen DeepStream app on the GTX 1650)
 
