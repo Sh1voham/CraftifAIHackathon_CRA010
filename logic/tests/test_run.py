@@ -178,3 +178,14 @@ def test_video_frames_random_access(tmp_path) -> None:
     vf = VideoFrames(path)
     assert abs(int(vf.at(1.0).mean()) - 100) <= 3
     assert vf.at(100.0) is None
+
+
+def test_cli_record_writes_replayable_frames(tmp_path) -> None:
+    clip = tmp_path / "fall.jsonl"
+    frames = scripted_fall()
+    write_jsonl(clip, frames)
+    rec = tmp_path / "rec.jsonl"
+    res = _cli(["--input", "-", "--incidents", str(tmp_path / "i.jsonl"), "--record", str(rec)],
+               input=clip.read_bytes())
+    assert res.returncode == 0, res.stderr.decode()
+    assert rec.read_bytes() == clip.read_bytes()

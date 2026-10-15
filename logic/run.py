@@ -19,7 +19,7 @@ import numpy as np
 from logic.config import Config, load_config
 from logic.fall import ALERT_KINDS, Event, FallDetector
 from logic.incidents import IncidentLog, WallClock, event_record
-from logic.io import Frame, read_keypoints
+from logic.io import Frame, read_keypoints, write_frames
 from logic.mqtt_out import MqttPublisher
 from logic.pipeline import FramePipeline, Step
 from logic.privacy import save_blurred
@@ -163,6 +163,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--video", default=None,
                     help="video file aligned with the keypoints; alert frames are saved blurred")
     ap.add_argument("--blur-dir", default="blurred")
+    ap.add_argument("--record", default=None,
+                    help="also save every received frame, in replay format, to this JSONL file")
     ap.add_argument("--realtime", action="store_true", help="replay at the original timestamps")
     ap.add_argument("--start-wallclock", default=None,
                     help="ISO time of the first frame; makes replay output reproducible")
@@ -198,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     runner = Runner(cfg, clock, args.camera, args.model, incidents, publisher, out=sys.stdout,
                     frame_source=frame_source, blur_dir=args.blur_dir)
 
+    record = open(args.record, "w", encoding="utf-8", newline="\n") if args.record else None
     wall0 = time.monotonic()
     t0: float | None = None
     next_beat = wall0
@@ -209,6 +212,9 @@ def main(argv: list[str] | None = None) -> int:
                 lag = (frame.t - t0) - (time.monotonic() - wall0)
                 if lag > 0:
                     time.sleep(lag)
+            if record is not None:
+                write_frames(record, [frame])
+                record.flush()
             try:
                 runner.process(frame)
             except Exception:  # noqa: BLE001 - one bad frame must not stop monitoring
@@ -227,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
             publisher.publish(cfg.mqtt.topic_status, runner.status())
             publisher.close()
         incidents.close()
+        if record is not None:
+            record.close()
     logger.info("done: %d frames, %d events", runner.frames, len(runner.records))
     return 0
 
