@@ -145,6 +145,7 @@ class IoCfg:
 
     poll_s: float = 0.05
     file_settle_s: float = 1.0  # give up on an unparseable per-frame file after this
+    video_fps_fallback: float = 30.0  # only for writing overlay video when the source reports no fps
 
 
 @dataclass(frozen=True)

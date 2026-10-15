@@ -106,7 +106,8 @@
   },
   "io": {
     "poll_s": 0.05,
-    "file_settle_s": 1.0
+    "file_settle_s": 1.0,
+    "video_fps_fallback": 30.0
   },
   "mqtt": {
     "topic_alerts": "safestride/alerts",

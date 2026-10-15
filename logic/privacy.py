@@ -74,12 +74,9 @@ def blur_person(image: np.ndarray, keypoints_or_bbox: Any, cfg: PrivacyCfg | Non
     return out
 
 
-def save_blurred(image: np.ndarray, path: str | Path, persons: Iterable[Any], cfg: PrivacyCfg | None = None,
-                 c_min: float = 0.3) -> Path:
-    """Blur every person in ``persons`` and write only the blurred image.
-
-    With no locatable person the whole frame is blurred before writing.
-    """
+def blur_people(image: np.ndarray, persons: Iterable[Any], cfg: PrivacyCfg | None = None,
+                c_min: float = 0.3) -> np.ndarray:
+    """Copy of ``image`` with every person blurred; the whole frame if none can be located."""
     cfg = cfg or PrivacyCfg()
     out = image.copy()
     boxes = [b for b in (person_box(p, c_min) for p in persons) if b is not None]
@@ -88,6 +85,16 @@ def save_blurred(image: np.ndarray, path: str | Path, persons: Iterable[Any], cf
             _blur_region(out, b, cfg)
     else:
         _blur_region(out, None, cfg)
+    return out
+
+
+def save_blurred(image: np.ndarray, path: str | Path, persons: Iterable[Any], cfg: PrivacyCfg | None = None,
+                 c_min: float = 0.3) -> Path:
+    """Blur every person in ``persons`` and write only the blurred image.
+
+    With no locatable person the whole frame is blurred before writing.
+    """
+    out = blur_people(image, persons, cfg, c_min)
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     ok, buf = cv2.imencode(p.suffix or ".jpg", out)
