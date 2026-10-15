@@ -108,7 +108,8 @@ class TugCfg:
     y_percentile_hi: float = 98.0
     min_range_Ls: float = 0.4  # hip must travel at least this far between sitting and standing
     vx_window_s: float = 0.5
-    turn_speed_Ls: float = 0.2  # hysteresis threshold on hip speed for direction changes
+    turn_speed_Ls: float = 0.2  # minimum hysteresis threshold on hip speed, torso lengths/s
+    turn_speed_frac: float = 0.5  # turn = hip speed below this fraction of the median walking speed
 
 
 @dataclass(frozen=True)

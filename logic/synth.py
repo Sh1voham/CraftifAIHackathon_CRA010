@@ -537,6 +537,81 @@ def make_walk(seed: int, speed: float = 1.0, cadence: float = 100.0, left_slower
     return Clip(name=f"walk_gait_{seed}", frames=frames, label=label)
 
 
+CHAIR_HIP_M = 0.48  # hip height when seated
+
+
+def _crossings(t: np.ndarray, y: np.ndarray, level: float) -> list[tuple[float, int]]:
+    """(time, +1 rising / -1 falling) where ``y`` crosses ``level``."""
+    out = []
+    for i in range(len(t) - 1):
+        if (y[i] - level) * (y[i + 1] - level) < 0:
+            tc = t[i] + (level - y[i]) / (y[i + 1] - y[i]) * (t[i + 1] - t[i])
+            out.append((float(tc), 1 if y[i + 1] > y[i] else -1))
+    return out
+
+
+def make_tug(seed: int, px_per_m: float = 160.0, speed: float | None = None) -> Clip:
+    """Timed Up and Go clip: sit, stand up, walk 3 m, turn, walk back, turn, sit down.
+
+    Ground truth uses the same definition as ``logic.tug`` on the noise-free
+    hip height: stand-up from y_n 0.1 to 0.9, TUG from stand-up start (y_n
+    rising through 0.1) to sit-down end (y_n falling through 0.1).
+    """
+    rng = np.random.default_rng(seed)
+    body = Body().scaled(rng.uniform(0.95, 1.05))
+    v = speed if speed is not None else rng.uniform(0.6, 1.2)
+    g = Gait(speed=v, phase0=float(rng.uniform(0, 1.2)))
+    g.T_L = g.T_R = 60.0 / rng.uniform(85, 110)
+    sit0, sts, turn_s = rng.uniform(2.0, 3.0), rng.uniform(1.0, 1.8), rng.uniform(1.0, 2.0)
+    out_s, turn2, sit_s = 3.0 / v, rng.uniform(0.8, 1.2), rng.uniform(1.2, 2.0)
+    x_up = 0.15
+    seated = Pose(hx=0.0, hy=CHAIR_HIP_M, theta=5.0, aL=85.0, kL=85.0, aR=85.0, kR=85.0, armL=30.0, armR=30.0)
+    walk = walking(body, g, x_up, 1, turn_at=out_s, turn_s=turn_s)
+    walk_total = 2 * out_s + turn_s
+    mid_hy = CHAIR_HIP_M + 0.45 * (body.stand_hip - CHAIR_HIP_M)
+    stand_up = keyframed([(0.0, seated), (0.5 * sts, Pose(hx=0.08, hy=mid_hy, theta=35.0, aL=40.0, kL=50.0,
+                                                          aR=40.0, kR=50.0)), (sts, walk(0.0))])
+    upright_back = Pose(hx=x_up, hy=body.stand_hip, theta=3.0, facing=-1)
+    upright_fwd = replace(upright_back, facing=1)
+    turn_to_sit = keyframed([(0.0, walk(walk_total)), (0.5 * turn2, upright_back)])
+    sit_down = keyframed([(0.0, upright_fwd), (0.5 * sit_s, Pose(hx=0.05, hy=mid_hy, theta=35.0, aL=40.0,
+                                                                 kL=50.0, aR=40.0, kR=50.0)), (sit_s, seated)])
+    T2, T3 = sit0 + sts, sit0 + sts + walk_total
+    T4, T5 = T3 + turn2, T3 + turn2 + sit_s
+
+    def fn(t: float) -> Pose:
+        if t < sit0:
+            return seated
+        if t < T2:
+            return stand_up(t - sit0)
+        if t < T3:
+            return walk(t - T2)
+        if t < T3 + 0.5 * turn2:
+            return turn_to_sit(t - T3)
+        if t < T4:
+            return upright_fwd
+        if t < T5:
+            return sit_down(t - T4)
+        return seated
+
+    duration = T5 + 2.0
+    reach = x_up + v * out_s + v * turn_s / math.pi
+    scene = Scene(px_per_m=px_per_m, width=int((reach + 1.6) * px_per_m), height=int(2.3 * px_per_m) + 60,
+                  floor_px=int(2.3 * px_per_m) + 20, x_origin_px=0.7 * px_per_m)
+    t0 = 100.0
+    frames = render(fn, body, scene, duration, rng, t0, with_bbox=True)
+    fine = np.arange(0.0, duration, 0.002)
+    yn = (np.array([fn(x).hy for x in fine]) - CHAIR_HIP_M) / (body.stand_hip - CHAIR_HIP_M)
+    lo, hi = _crossings(fine, yn, 0.1), _crossings(fine, yn, 0.9)
+    t_a = next(tc for tc, s in lo if s > 0)
+    t_b = next(tc for tc, s in hi if s > 0)
+    t_d = [tc for tc, s in lo if s < 0][-1]
+    label = {"class": "tug", "variant": "standard", "is_fall": False, "expected_event": None, "t_fall_start": None,
+             "speed_mps": v, "px_per_m": px_per_m, "tug_s": t_d - t_a, "t_sts": t_b - t_a,
+             "t_standup_start": t0 + t_a, "t_turn_mid": t0 + T2 + out_s + 0.5 * turn_s}
+    return Clip(name=f"tug_{seed}", frames=frames, label=label)
+
+
 # ---------------------------------------------------------------- dataset
 
 CLASS_MIX: list[tuple[str, str, float]] = [
