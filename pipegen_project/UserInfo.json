@@ -1,0 +1,463 @@
+{
+  "info": {
+    "project_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+    "pipeline_command": "python application.py /home/dread/videos/fall_test.mp4",
+    "project_name": "Human Pose Tracking and Fall Detection",
+    "important_files": [],
+    "model_paths": [
+      "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+    ],
+    "model_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx",
+    "architecture": {
+      "connections": [
+        {
+          "from": "n1",
+          "to": "n2"
+        },
+        {
+          "from": "n2",
+          "to": "n3"
+        },
+        {
+          "from": "n3",
+          "to": "n4"
+        },
+        {
+          "from": "n4",
+          "to": "n5"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "n1",
+          "name": "Image input",
+          "short_description": "The application is documented as a single-image sanity test."
+        },
+        {
+          "id": "n2",
+          "name": "Letterbox preprocessing",
+          "short_description": "Resizes to 640×640 with aspect ratio preserved, symmetric grey padding, RGB ordering, and 1/255 scaling."
+        },
+        {
+          "id": "n3",
+          "name": "YOLO11s-Pose ONNX",
+          "short_description": "Produces candidate person boxes and 17 COCO keypoints per candidate."
+        },
+        {
+          "id": "n4",
+          "name": "Pose decoding and NMS",
+          "short_description": "Interprets box, confidence, keypoint-coordinate, and visibility columns and applies single-class NMS."
+        },
+        {
+          "id": "n5",
+          "name": "Fall heuristic and visualization",
+          "short_description": "The script estimates fall-like posture from box shape and shoulder-to-hip orientation, then draws results for the still-image sanity check."
+        }
+      ]
+    },
+    "analysis_summaries": [
+      "This repository contains a single-image sanity-test application for a YOLO11s-Pose ONNX model. It preprocesses an image with RGB letterboxing to 640×640, then runs the model and decodes person boxes and 17 COCO keypoints with NMS. The script can draw poses and uses a simple orientation heuristic to estimate fall-like posture from one still image; that heuristic is not a trained fall classifier. The provided task input is a video file, but the application is documented as single-image-only and does not establish video-frame or timestamp handling.",
+      "[read_file]: application.py: \"\"\"Single-image sanity test for the WorkerFallDetection YOLO11s-Pose ONNX\nmodel (see /home/kushal/Craftifai/UseCases/WorkerFallDetection/DeepStream/pgie.txt).\n\nModel: Models/yolo11s-pose.onnx\n  - Ultralytics YOLO11s-Pose, single class (\"person\", Models/labels.txt),\n    17 COCO keypoints. Exported via Models/export_yolo11_pose.py, which is\n    the marcoslucianops DeepStream-Yolo-Pose convention: the raw Ultralytics\n    head output [1, 56, 8400] is wrapped in a `DeepStreamOutput` module that\n    j"
+    ],
+    "user_prompt": "Build a real-time human pose estimation pipeline for fall detection.\n\nInput: a video file at /home/dread/videos/fall_test.mp4 for now (later the live camera).\nModel: a 2D human pose estimation model that outputs the 17 COCO body keypoints\n(nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles) with a\nconfidence score per keypoint, plus a person bounding box. Pick a small or\nmedium model: the GPU is a GeForce GTX 1650 with 4 GB memory.\nCompile the model to a TensorRT FP16 engine (an INT8 engine as well if possible,\nfor comparison) and give the speed report.\n\nOutput: for every frame, write one JSON line to /home/dread/pipegen_out/keypoints.jsonl\ncontaining the frame timestamp in seconds, and for each detected person their id,\nbounding box and the 17 keypoints as [x, y, confidence] in pixel coordinates.\nAlso show the video with the skeleton drawn on it.\nBlur the person before saving any frame.",
+    "pipeline_requirements": {
+      "extras": {
+        "compile": {
+          "comparison_precision": "int8",
+          "precision": "fp16",
+          "speed_report": "provide"
+        },
+        "device": "GeForce GTX 1650 with 4 GB memory",
+        "input_roles": {
+          "input1": "video file for now (later the live camera)"
+        },
+        "scene_step": {
+          "advice": [],
+          "answered": {
+            "light__input1": "normal",
+            "motion__input1": "fixed",
+            "mount__input1": "level",
+            "privacy__input1": [
+              "people"
+            ],
+            "size__input1": "not_sure"
+          },
+          "declined": [],
+          "inputs": {
+            "input1": {
+              "basis": {
+                "asks": [],
+                "kind": "video file",
+                "mtime": 1792079156.7107341,
+                "size": 6833708,
+                "tasks": [
+                  "human pose estimation@input1"
+                ],
+                "url": "/home/dread/videos/fall_test.mp4"
+              },
+              "cues": [
+                "camera_fixed",
+                "blur_people"
+              ],
+              "duty": {
+                "colour_cast": 0.417,
+                "dock_daylight": 0.0,
+                "haze": 0.833,
+                "low_light_after_dark": 0.0
+              },
+              "evidence": [
+                "The view holds still between frames, so the camera looks fixed."
+              ],
+              "footage": {
+                "chroma_offset": 0.023,
+                "clipped_fraction": 0.002,
+                "dark_fraction": 0.011,
+                "fps": 15.56,
+                "frames": 187,
+                "height": 720,
+                "mean_chroma": 8.3,
+                "motion": "fixed",
+                "noise": 0.11,
+                "p50": 0.514,
+                "rms_contrast": 0.14,
+                "rules": [],
+                "samples": 12,
+                "source": "video file",
+                "suggest": [],
+                "width": 1280
+              },
+              "said": {
+                "blur_people": "Blur the person before saving any frame."
+              },
+              "skipped": false
+            }
+          },
+          "ledger": [
+            "People blur@input1"
+          ],
+          "needs": [],
+          "privacy_source": [],
+          "rules": {
+            "camera_angled": [],
+            "camera_fixed": [
+              "input1"
+            ],
+            "camera_moving": [],
+            "camera_shakes": [],
+            "motion_unknown": [],
+            "no_cloud": [],
+            "privacy": [
+              "input1"
+            ],
+            "small_objects": [],
+            "store_events_only": []
+          },
+          "version": 1
+        }
+      },
+      "inputs": [
+        {
+          "data_kind": [
+            "frames"
+          ],
+          "fps": 15.08,
+          "id": "input1",
+          "resolution": "1280x720",
+          "role": "video file for now (later the live camera)",
+          "type": "video file",
+          "url": "/home/dread/videos/fall_test.mp4"
+        }
+      ],
+      "needs_model": null,
+      "outputs": [
+        {
+          "id": "out1",
+          "type": "metadata_file",
+          "url": "/home/dread/pipegen_out/keypoints.jsonl"
+        },
+        {
+          "id": "out2",
+          "layout": "overlay",
+          "type": "live_display"
+        },
+        {
+          "id": "out3",
+          "type": "metadata_file",
+          "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+        }
+      ],
+      "parallel": false,
+      "special_algorithms": [
+        {
+          "applies_to": [
+            "human pose estimation@input1"
+          ],
+          "category": "tracking",
+          "confirmed": true,
+          "description": "Assign person IDs across frames for the per-person output and fall detection.",
+          "name": "person tracking",
+          "reference_path": null
+        },
+        {
+          "applies_to": [
+            "human pose estimation@input1",
+            "person tracking@input1"
+          ],
+          "category": "other",
+          "confirmed": true,
+          "description": "Detect falls using the human pose estimates and tracked people. Fall condition: hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso remaining more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. For each person, estimate the floor line from the lowest ankle y-position observed while they stand upright during the first 3 seconds of the video.",
+          "name": "fall detection",
+          "parameters": {
+            "floor_line_calibration_window_seconds": 3,
+            "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+            "hip_midpoint_max_height_above_floor_tors": 0.5,
+            "hold_seconds": 3,
+            "method": "Custom pose-based sequential fall rule",
+            "rules": [
+              {
+                "name": "Rapid hip drop",
+                "speed_faster_than_torso_lengths_per_seco": 1.2
+              },
+              {
+                "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+                "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+                "name": "Tilted posture and hips near floor",
+                "torso_angle_from_vertical_degrees": ">60",
+                "within_seconds": 1.5
+              },
+              {
+                "name": "Hold fall posture",
+                "seconds": 3
+              }
+            ],
+            "sequence_window_seconds": 1.5,
+            "torso_angle_from_vertical_degrees": 60
+          },
+          "reference_path": null
+        },
+        {
+          "applies_to": [
+            "human pose estimation@input1",
+            "person tracking@input1",
+            "fall detection@input1"
+          ],
+          "catalogue": "§6 Privacy",
+          "category": "other",
+          "condition": "Every frame, on the boxes its source task finds; after the model and before every picture output.",
+          "confirmed": true,
+          "cue": [
+            "blur_people"
+          ],
+          "description": "Pixelates every person the model finds. Added because input1 must not show people in saved or sent pictures.",
+          "group": 6,
+          "name": "People blur",
+          "parameters": {
+            "ops": [
+              {
+                "cell": 16,
+                "classes": [
+                  "person"
+                ],
+                "mode": "pixelate",
+                "op": "pixelate_boxes",
+                "region": "person",
+                "source": "human pose estimation@input1"
+              }
+            ]
+          },
+          "placement": {
+            "order": 50,
+            "position": "pre_output"
+          },
+          "reference_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+          "source": "scene"
+        }
+      ],
+      "target_classes": [],
+      "task_kind": null,
+      "tasks": [
+        {
+          "details": "Estimate 2D human pose with the 17 COCO body keypoints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles), a confidence score per keypoint, and a person bounding box. Emit keypoint coordinates as [x, y, confidence] in pixels, with frame timestamps in seconds. Use a small or medium model suitable for the named GPU. Blur the person before saving any frame.",
+          "for_input": "input1",
+          "needs_model": true,
+          "target_classes": [
+            "person"
+          ],
+          "type": "human pose estimation"
+        },
+        {
+          "derives_from": [
+            "human pose estimation@input1"
+          ],
+          "details": "Assign person IDs across frames for the per-person output and fall detection.",
+          "for_input": "input1",
+          "needs_model": false,
+          "target_classes": [
+            "person"
+          ],
+          "type": "person tracking"
+        },
+        {
+          "derives_from": [
+            "human pose estimation@input1",
+            "person tracking@input1"
+          ],
+          "details": "Detect falls for tracked people using the pose estimates. A fall requires a hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso staying more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. Determine the floor line for each person from the lowest ankle y-position observed while that person stands upright during the first 3 seconds of the video.",
+          "for_input": "input1",
+          "method": {
+            "catalogue": null,
+            "from": "default",
+            "name": "Custom pose-based sequential fall rule",
+            "params": {
+              "floor_line_calibration_window_seconds": 3,
+              "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+              "hip_midpoint_max_height_above_floor_tors": 0.5,
+              "hold_seconds": 3,
+              "sequence_window_seconds": 1.5,
+              "torso_angle_from_vertical_degrees": 60
+            },
+            "rules": [
+              {
+                "catalogue": null,
+                "name": "Rapid hip drop",
+                "params": {
+                  "speed_faster_than_torso_lengths_per_seco": 1.2
+                }
+              },
+              {
+                "catalogue": null,
+                "name": "Tilted posture and hips near floor",
+                "params": {
+                  "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+                  "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+                  "torso_angle_from_vertical_degrees": ">60",
+                  "within_seconds": 1.5
+                }
+              },
+              {
+                "catalogue": null,
+                "name": "Hold fall posture",
+                "params": {
+                  "seconds": 3
+                }
+              }
+            ]
+          },
+          "needs_model": false,
+          "target_classes": [
+            "person"
+          ],
+          "type": "fall detection"
+        }
+      ],
+      "user_intent_summary": "Estimate and track 2D human poses in the supplied video, detect falls using a custom condition I’ll provide, write per-frame keypoints and IDs to JSONL, and display the video with a skeleton."
+    },
+    "repo_sources": [
+      {
+        "analysis_summaries": [
+          "This repository contains a single-image sanity-test application for a YOLO11s-Pose ONNX model. It preprocesses an image with RGB letterboxing to 640×640, then runs the model and decodes person boxes and 17 COCO keypoints with NMS. The script can draw poses and uses a simple orientation heuristic to estimate fall-like posture from one still image; that heuristic is not a trained fall classifier. The provided task input is a video file, but the application is documented as single-image-only and does not establish video-frame or timestamp handling.",
+          "[read_file]: application.py: \"\"\"Single-image sanity test for the WorkerFallDetection YOLO11s-Pose ONNX\nmodel (see /home/kushal/Craftifai/UseCases/WorkerFallDetection/DeepStream/pgie.txt).\n\nModel: Models/yolo11s-pose.onnx\n  - Ultralytics YOLO11s-Pose, single class (\"person\", Models/labels.txt),\n    17 COCO keypoints. Exported via Models/export_yolo11_pose.py, which is\n    the marcoslucianops DeepStream-Yolo-Pose convention: the raw Ultralytics\n    head output [1, 56, 8400] is wrapped in a `DeepStreamOutput` module that\n    j"
+        ],
+        "architecture": {
+          "connections": [
+            {
+              "from": "n1",
+              "to": "n2"
+            },
+            {
+              "from": "n2",
+              "to": "n3"
+            },
+            {
+              "from": "n3",
+              "to": "n4"
+            },
+            {
+              "from": "n4",
+              "to": "n5"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n1",
+              "name": "Image input",
+              "short_description": "The application is documented as a single-image sanity test."
+            },
+            {
+              "id": "n2",
+              "name": "Letterbox preprocessing",
+              "short_description": "Resizes to 640×640 with aspect ratio preserved, symmetric grey padding, RGB ordering, and 1/255 scaling."
+            },
+            {
+              "id": "n3",
+              "name": "YOLO11s-Pose ONNX",
+              "short_description": "Produces candidate person boxes and 17 COCO keypoints per candidate."
+            },
+            {
+              "id": "n4",
+              "name": "Pose decoding and NMS",
+              "short_description": "Interprets box, confidence, keypoint-coordinate, and visibility columns and applies single-class NMS."
+            },
+            {
+              "id": "n5",
+              "name": "Fall heuristic and visualization",
+              "short_description": "The script estimates fall-like posture from box shape and shoulder-to-hip orientation, then draws results for the still-image sanity check."
+            }
+          ]
+        },
+        "class_coverage": {
+          "human pose estimation@input1": {
+            "targets": [
+              {
+                "basis": "application.py documents the YOLO11s-Pose output layout, NMS decoding, and COCO-17 keypoint names. The model label file identifies the person class.",
+                "kind": "structured_output",
+                "labels": [],
+                "model_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx",
+                "output": "Decoded person bounding boxes and 17 COCO keypoints as pixel-space coordinates with per-keypoint visibility/confidence; the model output is [1, 8400, 56].",
+                "requested": "person",
+                "status": "supported"
+              }
+            ],
+            "version": 1
+          }
+        },
+        "class_coverage_signature": "0d1d6d67a13f21da180f91ec",
+        "covers_tasks": [
+          "human pose estimation@input1"
+        ],
+        "id": "src1",
+        "label_space": {
+          "count": 1,
+          "labels": [
+            "person"
+          ],
+          "source": "Models/labels.txt",
+          "version": 3
+        },
+        "model_paths": [
+          "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+        ],
+        "model_roles": [
+          {
+            "for_task": "human pose estimation@input1",
+            "path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx",
+            "role": "Produces person bounding boxes and 17 COCO keypoints with per-keypoint visibility/confidence; the decoder applies NMS."
+          }
+        ],
+        "pipeline_command": "python application.py /home/dread/videos/fall_test.mp4",
+        "project_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+        "scan_hash": "65643f74602f021acde333095c18ebfbd417e8c8d4c087418c924ec55bb353c9",
+        "source": "benchmark",
+        "subfolder": "WorkerFallDetection",
+        "unused_models": []
+      }
+    ],
+    "class_waivers": []
+  },
+  "loop": {
+    "turn_id": 0,
+    "conversation_context": "",
+    "questionForUser": [],
+    "userConfirmed": true
+  }
+}

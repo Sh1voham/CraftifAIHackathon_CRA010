@@ -1,0 +1,996 @@
+{
+  "analysis_state": {
+    "architecture": {
+      "connections": [
+        {
+          "from": "n1",
+          "to": "n2"
+        },
+        {
+          "from": "n2",
+          "to": "n3"
+        },
+        {
+          "from": "n3",
+          "to": "n4"
+        },
+        {
+          "from": "n4",
+          "to": "n5"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "n1",
+          "name": "Image input",
+          "short_description": "The application is documented as a single-image sanity test."
+        },
+        {
+          "id": "n2",
+          "name": "Letterbox preprocessing",
+          "short_description": "Resizes to 640×640 with aspect ratio preserved, symmetric grey padding, RGB ordering, and 1/255 scaling."
+        },
+        {
+          "id": "n3",
+          "name": "YOLO11s-Pose ONNX",
+          "short_description": "Produces candidate person boxes and 17 COCO keypoints per candidate."
+        },
+        {
+          "id": "n4",
+          "name": "Pose decoding and NMS",
+          "short_description": "Interprets box, confidence, keypoint-coordinate, and visibility columns and applies single-class NMS."
+        },
+        {
+          "id": "n5",
+          "name": "Fall heuristic and visualization",
+          "short_description": "The script estimates fall-like posture from box shape and shoulder-to-hip orientation, then draws results for the still-image sanity check."
+        }
+      ]
+    },
+    "info": {
+      "model_paths": [
+        "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+      ],
+      "pipeline_command": "python application.py /home/dread/videos/fall_test.mp4",
+      "project_name": "WorkerFallDetection",
+      "project_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection"
+    },
+    "loop_count": 1,
+    "repo_url": "",
+    "tools_history": [
+      {
+        "result": "This repository contains a single-image sanity-test application for a YOLO11s-Pose ONNX model. It preprocesses an image with RGB letterboxing to 640×640, then runs the model and decodes person boxes and 17 COCO keypoints with NMS. The script can draw poses and uses a simple orientation heuristic to estimate fall-like posture from one still image; that heuristic is not a trained fall classifier. The provided task input is a video file, but the application is documented as single-image-only and does not establish video-frame or timestamp handling.",
+        "tool": "_summary"
+      },
+      {
+        "result": "[read_file]: application.py: \"\"\"Single-image sanity test for the WorkerFallDetection YOLO11s-Pose ONNX\nmodel (see /home/kushal/Craftifai/UseCases/WorkerFallDetection/DeepStream/pgie.txt).\n\nModel: Models/yolo11s-pose.onnx\n  - Ultralytics YOLO11s-Pose, single class (\"person\", Models/labels.txt),\n    17 COCO keypoints. Exported via Models/export_yolo11_pose.py, which is\n    the marcoslucianops DeepStream-Yolo-Pose convention: the raw Ultralytics\n    head output [1, 56, 8400] is wrapped in a `DeepStreamOutput` module that\n    j",
+        "tool": "read_file"
+      }
+    ]
+  },
+  "benchmark_readme": "# PipeGen Benchmark Repository\n\nThis repository is a benchmark collection for PipeGen. It gathers multiple computer vision and perception projects that cover object detection, depth estimation, semantic segmentation, and multi-modal autonomous driving perception, alongside a set of applied retail, logistics, surveillance, and workplace-safety use cases, making it a practical workspace for evaluating pipeline generation and orchestration across varied real-world AI repositories.\n\nFor model setup, each repository may include its own helper shell script such as `download.sh` in models folder, `download_models.sh`, or a similarly named downloader. Users can run the relevant script inside the target repository to fetch the required pretrained models and supporting assets before executing the pipeline. Model weights are not committed here, so running that downloader is a required first step for most folders.\n\n## Repository Overview\n\n`AbandonedObjectDetection` flags unattended luggage in surveillance footage by tracking COCO backpack/handbag/suitcase detections from an Ultralytics YOLO11s ONNX detector with a SORT-style IOU + Hungarian tracker.  \nAn object is reported as abandoned only when it stays stationary (displacement under 20% of its own box diagonal) and no person's box is within three box-diagonals of it, continuously, for `--abandoned-seconds`.  \nWithin the PipeGen benchmark collection, it contributes a security-analytics workload that layers multi-object tracking and owner-association geometry on top of a plain detector rather than a purpose-trained class.\n\n`ANPR` is an automatic number plate recognition pipeline that chains two ONNX models: a YOLOv9-t 384x384 license-plate detector with NMS baked into the graph, then a Compact Convolutional Transformer OCR head that reads 10 character slots over a 37-symbol alphabet plus a 66-way region prediction.  \nIt is a from-scratch onnxruntime implementation rather than a wrapper around the `fast_alpr` package, and `model/download.sh` fetches both weights along with the OCR alphabet/region config the recognizer cannot run without.  \nFor PipeGen benchmarking, it adds a genuinely two-stage detect-then-recognize workload where the second model consumes crops produced by the first.\n\n`Bevfusion` is a bird's-eye-view perception repository focused on fusing camera and LiDAR information for autonomous driving workloads.  \nIt likely includes model setup, pretrained checkpoint download flows, and evaluation or demo utilities for 3D scene understanding tasks.  \nAs part of this benchmark set, it represents a large multi-modal project with heavier dependencies, richer model logic, and end-to-end perception pipelines.\n\n`CheckoutMonitoring` reports per-lane checkout status from a single image or a sequence of frames, using the same Ultralytics YOLO11s COCO person detector reused across the retail use cases in this collection.  \nEach lane in `--zone-file` carries its own cashier polygon and queue polygon, and a lane resolves to OPEN - SERVING, OPEN - IDLE, CLOSED, or UNSTAFFED - QUEUE! — the last being the state a store manager actually needs surfaced.  \nWithin the PipeGen benchmark, it contributes a multi-zone rule engine over detection output, and it expects a low `--conf-threshold` because ceiling-mounted wide-angle shots make people small.\n\n`ContainerFillLevel` estimates how full a container is from one monocular image by running Depth-Anything-V2-metric through ONNX Runtime and reading the per-row median depth profile of the frame.  \nThe largest smoothed discontinuity in that profile is taken as the fill boundary — nearer side filled, farther side empty — and fill percentage is the filled row fraction; a frame with no qualifying jump reads as effectively full.  \nFor PipeGen benchmarking, it adds a dense metric-depth workload whose output is a derived scalar rather than boxes or masks, and it is a heuristic rather than a calibrated volumetric measurement.\n\n`ConveyorBeltMonitoring` runs a YOLOv8 detector fine-tuned for conveyor lines (`abhiejit/package-conveyor-ggu-yolo2`) over four classes: bag, box, carton, and conveyor.  \nInput is `images[1,3,640,640]` RGB letterboxed to 640 with grey padding and scaled by 1/255; output `output0[1,8,8400]` is raw 4-box plus 4-class and needs the usual transpose, confidence filter, and NMS.  \nWithin the PipeGen benchmark collection, it contributes a logistics-domain detection workload driven entirely by the contract embedded in the ONNX metadata.\n\n`CustomerDwellTime` measures how long each individual shopper stays inside a zone, combining the YOLO11s person detector, a from-scratch SORT-style tracker (IOU + Hungarian matching), and a polygon zone from `--zone-file`.  \nDwell is the cumulative seconds a track's foot-point spends inside the zone, converted from frame counts using the source fps, so it needs a video or an ordered directory of frames rather than a single image.  \nFor PipeGen benchmarking, it adds a detect-track-and-clock pipeline where the answer only exists across frames, with no cross-session re-identification once a track is lost.\n\n`CustomerHeatmaps` builds a retail foot-traffic heatmap by accumulating a small Gaussian blob at each detected person's foot-point into a running 2D density map over every frame of a video.  \nThe accumulator is normalized, colorized with the JET colormap, and alpha-blended over a representative frame, so the output is a single composited image rather than per-frame annotations.  \nWithin the PipeGen benchmark collection, it contributes a spatial-accumulation workload that reduces an entire video to one aggregate visualization.\n\n`DeepLabV3-Plus-MobileNet-onnx` appears to center on semantic segmentation using a DeepLabV3+ architecture with a MobileNet backbone exported to ONNX.  \nIt is well suited for benchmarking lightweight vision inference pipelines where accuracy and deployment efficiency both matter.  \nIn this collection, it offers a focused example of image segmentation, ONNX model handling, and practical inference-oriented project structure.\n\n`EfficientNet` looks like an image classification repository built around the EfficientNet ONNX model for compact and efficient inference.  \nIt likely provides a simple application entry point, model download flow, and label mapping for running classification on input images.  \nWithin the PipeGen benchmark, it contributes a lightweight classification workload that is useful for testing straightforward model loading and prediction pipelines.\n\n`EmptyShelfDetection` locates out-of-stock gaps on retail shelves with `wiwiewei18/smart-shelf-tracker`, a single-class YOLO11n whose confidence is badly miscalibrated by its 497-image training set.  \nIt therefore runs at a deliberately very low confidence threshold and suppresses the resulting noise with two filters: drop boxes centred in the bottom `floor_frac` of the frame, and drop boxes below `min_area_frac` of the image area.  \nFor PipeGen benchmarking, it is a useful example of a detector whose usable operating point sits far from the conventional 0.25-0.5 default.\n\n`Facebook-RTDETR` appears to be an object detection repository based on the RT-DETR model family, likely adapted for ONNX inference and practical deployment.  \nIt seems suited for benchmarking transformer-style real-time detection pipelines that differ from YOLO-based architectures in both model design and runtime behavior.  \nIn this benchmark set, it adds another modern detection workload with pretrained model downloads, application-level inference, and visual output generation.\n\n`FaceMaskDetection` classifies faces as with_mask, without_mask, or mask_weared_incorrect using `spacewalk01/yolov5-face-mask-detection`, a YOLOv5s trained on the classic 853-image Kaggle mask dataset.  \nIt is the one repository here on the classic YOLOv5 head convention — `output0[1,25200,8]` with a separate objectness column, so final confidence is objectness times class score rather than class score alone.  \nThe checkpoint predates the unified `ultralytics` package and will not unpickle through it, so `model/download.sh` exports it with the original yolov5 repo's own `export.py`.\n\n`Fast-SCNN` looks like a semantic segmentation repository centered on the Fast-SCNN architecture for efficient scene parsing.  \nIt likely targets lightweight segmentation use cases where real-time or edge-friendly inference is important, especially for road scenes or general pixel-wise labeling tasks.  \nFor PipeGen benchmarking, it contributes another segmentation-focused pipeline with a simpler application flow and an emphasis on speed-oriented deployment.\n\n`LoiteringDetection` alerts on continuous presence rather than presence itself, pairing the YOLO11s person detector with a SORT-style tracker and the named polygon zones of `RestrictedAreaMonitoring`.  \nEach track carries a session clock over consecutive in-zone frames that resets the moment it leaves, so someone who walks away and comes back starts a fresh visit instead of continuing the old one; `--loiter-seconds` defaults to 30.  \nWithin the PipeGen benchmark collection, it sits between the harmless-zone dwell metric and the always-alert restricted zone, and it needs a video for a real time-threshold reading.\n\n`Mask2Former-Instance-Segmentation` appears to be an instance segmentation repository built around the Mask2Former model for mask-level scene understanding.  \nIt likely supports label-aware segmentation of individual objects, making it useful for benchmarking richer outputs than plain bounding-box detection.  \nWithin the PipeGen benchmark suite, it adds a modern transformer-based segmentation workload with model downloads, application inference, and mask generation behavior.\n\n`multi-model-perception-dashboard` is a self-contained four-model perception stack that runs YOLOv8 object detection, YOLO11 instance segmentation, 2D PAF pose estimation, and MiDaS monocular depth in parallel on a single webcam or video source, then composites the outputs into a labeled 2x2 dashboard with an FPS and per-model latency HUD.  \nInference is fanned out across a `ThreadPoolExecutor(4)` so all four ONNX models execute concurrently per frame, and the result can be displayed live, recorded to a video file, or both — with an included `smoke_test.py` that exercises the same composite path on synthetic frames headlessly.  \nWithin the PipeGen benchmark collection, it stands out as the most pipeline-orchestration-heavy entry: it stresses parallel multi-model scheduling, output fusion, and HUD compositing in a way that single-task repositories do not.\n\n`ONNX-MiDaS-Depth-Estimation` is a depth estimation repository built around the MiDaS model running through ONNX Runtime for efficient inference.  \nIt seems intended for processing images, video, or webcam streams to generate monocular depth maps, which makes it a useful example of dense prediction beyond classification or detection.  \nWithin the PipeGen benchmark, it contributes a depth-focused workload with preprocessing, model execution, and visualization steps.\n\n`ONNX-TopFormer-Semantic-Segmentation` looks like a semantic segmentation repository using the TopFormer architecture in ONNX format.  \nIt appears aimed at efficient dense scene parsing, likely with webcam or image inference paths that emphasize practical deployment and lightweight segmentation performance.  \nFor PipeGen benchmarking, it adds another segmentation pipeline with a distinct model family, ONNX runtime flow, and structured pixel-level prediction output.\n\n`onnx-Ultra-Fast-Lane-Detection-Inference` is a lane detection repository using an ONNX version of the Ultra-Fast Lane Detection model.  \nIt appears aimed at detecting road lanes from driving imagery or video, making it especially relevant for real-time transportation and ADAS-style scenarios.  \nFor PipeGen benchmarking, it adds a specialized structured-vision task with temporal or road-scene inference patterns that differ from generic detection and segmentation projects.\n\n`ONNX-Unidepth-Monocular-Metric-Depth-Estimation` appears to focus on metric monocular depth estimation using the UniDepth model in ONNX format.  \nIt likely goes beyond relative depth by targeting scale-aware predictions from a single image, making it especially relevant for applications that need more physically meaningful scene geometry.  \nFor PipeGen benchmarking, it adds another dense prediction workflow with modern ONNX deployment patterns and a different depth-estimation objective than MiDaS or stereo-based models.\n\n`ONNX-YOLOv8-Object-Detection` is an object detection project that uses YOLOv8 models exported to ONNX for streamlined deployment.  \nIt likely provides scripts for loading models, running inference on images or video, and drawing detections in a simple application-ready format.  \nFor benchmarking PipeGen, it serves as a representative detection repository with common modern CV patterns, fast inference expectations, and deployment-friendly model packaging.\n\n`Pose_Estimation` is a human pose estimation repository built around an ONNX model with keypoint and part-affinity-field decoding for multi-person skeletons.  \nIt supports running inference on images, videos, GIFs, or a live webcam stream, drawing limb connections and keypoints directly onto the output frames.  \nWithin the PipeGen benchmark collection, it adds a structured keypoint-prediction workload that differs from classification, detection, segmentation, and depth pipelines.\n\n`ppe-kit` detects personal protective equipment with `Tanishjain9/yolov8n-ppe-detection-6classes`, a YOLOv8n covering gloves, vest, goggles, helmet, mask, and safety_shoe at roughly 0.81 mAP@50.  \nInput is `images[1,3,640,640]` RGB letterboxed and scaled by 1/255; output `output0[1,10,8400]` is raw 4-box plus 6-class and needs transpose, confidence filter, and NMS.  \nFor PipeGen benchmarking, it contributes a compact edge-oriented safety-compliance detector, and its own README carries the full per-class metrics and dataset breakdown.\n\n`QueueLengthMonitoring` counts how many people stand inside a configurable queue polygon, filtering the YOLO11s COCO detector down to the person class.  \nQueue length here is the in-zone headcount that feeds an estimated-wait-time calculation; it does not infer queue order or fit a physical line shape, so a serpentine stanchion layout has to be described through `--zone-file`.  \nWithin the PipeGen benchmark collection, it is the simplest of the zone-rule retail workloads and a useful baseline against the dwell-time and checkout variants.\n\n`realsense_yolo_depth` is a live Intel RealSense + YOLOv8 fusion pipeline that grabs aligned color and Z16 depth frames from the camera, runs YOLOv8 ONNX object detection on the color image, and labels each detection box with the median metric depth sampled at its centre.  \nIt also overlays device metadata (name, serial, USB, firmware) and live accelerometer/gyroscope readings, reusing the YOLOv8 ONNX detector class from `ONNX-YOLOv8-Object-Detection` so only the depth-fusion and overlay logic are new.  \nWithin the PipeGen benchmark collection, it contributes a sensor-driven multi-modal pipeline that couples a RealSense source with neural detection and metric depth fusion, making it a good probe for orchestrating real hardware streams alongside ONNX inference.\n\n`ResNet-Image-Classification` looks like a straightforward image classification repository using a ResNet ONNX model and standard label mapping.  \nIt likely offers a compact inference entry point for classifying input images, making it a simple but useful benchmark for baseline computer vision pipelines.  \nWithin the PipeGen benchmark collection, it adds a classic classification workload that is easy to compare against lightweight or more modern architectures such as EfficientNet.\n\n`ResNet-Object-Detection` appears to be an object detection repository using a ResNet-based detection model, likely tailored for traffic or scene-specific inference.  \nIt seems well suited for benchmarking practical detection pipelines that rely on classic backbone-driven models rather than only the newest detector families.  \nFor PipeGen benchmarking, it contributes another detection example with pretrained model setup, application inference, and labeled visual outputs in a deployment-oriented structure.\n\n`RestrictedAreaMonitoring` treats any presence inside a marked danger zone as a security event, running the YOLO11s person detector, a SORT-style tracker, and a polygon membership test on every frame.  \nEach track resolves to CLEAR, IN ZONE, or INTRUSION! — the last after `--alert-frames` consecutive in-zone frames (default 2, enough to absorb a missed detection at the zone boundary) and reported with the seconds spent inside.  \nOmitting `--zone-file` makes the whole frame restricted, which suits a camera whose entire field of view is off-limits, such as a locked server room.\n\n`ShelfOccupancy` reports a continuous shelf fill percentage from `foduucom/product-detection-in-shelf-yolov8`, a two-class detector over empty and product.  \nOccupancy is the product box area divided by the combined product-plus-empty area, so it measures fill only across the shelf regions the model actually classified, not a segmentation of the whole surface.  \nThe model was trained on retail-cooler imagery and performs best on fridge and cooler shelves; its image loader is EXIF-aware because phone photos are commonly stored sideways.\n\n`SmokeDetection` runs `rabahdev/fire-smoke-yolov8n`, a YOLOv8n fine-tuned on the real-photograph D-Fire dataset over two classes, smoke and fire, with both surfaced since either is safety-critical.  \nA SORT-style tracker gives each detected region a persistent-ish ID so that `--alert-frames` consecutive detections are required before an alert fires, guarding against a single-frame false positive on a diffusing plume.  \nWithin the PipeGen benchmark collection, it contributes an environmental-hazard detection workload validated against both positive and clean-negative real imagery.\n\n`TheftDetection` uses `Nour190/shoplifting-yolo`, a YOLOv8s-Pose model with two classes, normal and shoplifting, tracked across frames with the same SORT-style IOU + Hungarian tracker used elsewhere in this collection.  \nAn alert requires `--alert-frames` consecutive shoplifting classifications on the same track, so per-frame classifier flicker does not fire it.  \nFor PipeGen benchmarking, it adds a pose-backbone behaviour classifier whose verdict is only meaningful as a run of frames rather than as a single detection.\n\n`UnsafeBehaviorDetection` detects smoking with `Enos-123/smoking-detection`, a single-class YOLO11m trained to find cigarettes.  \nInput is `images[1,3,640,640]` RGB letterboxed and scaled by 1/255; output `output0[1,5,8400]` is raw 4-box plus one class score and needs transpose, confidence filter, and NMS — every surviving detection is by definition the unsafe behaviour.  \nWithin the PipeGen benchmark collection, it contributes a small-object detection workload where the target occupies very few pixels relative to the person holding it.\n\n`VehicleDetection` runs Ultralytics' official COCO-pretrained YOLO11s through ONNX Runtime and counts the vehicle classes — bicycle, car, motorcycle, bus, train, truck, and boat.  \nEverything else in COCO-80 is still detected and drawn as a completeness check, but only the vehicle classes feed the count banner.  \nFor PipeGen benchmarking, it is the plain-detection baseline of this use-case group, sharing its `output0[1,84,8400]` decode contract with most of the retail and surveillance entries.\n\n`WorkerFallDetection` runs a YOLO11s-Pose ONNX export in the marcoslucianops DeepStream-Yolo-Pose layout, where the head output is transposed in-graph to `[1,8400,56]` — 4 box, 1 confidence, and 17 COCO keypoints of (x, y, visibility).  \nBox decode, objectness sigmoid, and keypoint pixel-space decode are all baked in by the Ultralytics Pose head at export time, so only single-class NMS is left for the application to do.  \nFalls are estimated from body orientation — a wide, short box plus a near-horizontal shoulder-to-hip line — which is a deliberately approximate single-frame heuristic, not a trained fall classifier.\n\n`yolo11n-instance-segmentation` appears to focus on instance segmentation using a compact YOLO11 segmentation model exported to ONNX.  \nIt likely supports running inference on images or video while producing both object-level detections and segmentation masks in a deployment-friendly workflow.  \nWithin the PipeGen benchmark suite, it adds a strong example of mask-based scene understanding that combines detection and segmentation in a single modern vision pipeline.\n\n`yolov8-multi-camera-input` is an object detection repository that runs a YOLOv8 ONNX model across six synchronized camera streams (front, front-left, front-right, back, back-left, back-right) in a single batched inference pass.  \nIt is well suited for autonomous-driving-style surround-view perception, where multiple video inputs must be processed together and annotated with detections in real time.  \nWithin the PipeGen benchmark collection, it contributes a multi-input batched detection workload that stresses pipeline orchestration across parallel video sources rather than a single image or video stream.\n\n`yolov8_pose_parallel` runs YOLOv8n object detection and YOLO11n-pose keypoint estimation concurrently on each frame via a `ThreadPoolExecutor(2)`, then overlays the detection boxes and the 17-keypoint COCO skeletons onto the same image with an FPS readout.  \nThe YOLOv8 wrapper reuses the `YOLOv8` class from `ONNX-YOLOv8-Object-Detection` (added to `sys.path`), while the pose head is a self-contained letterbox-and-decode port of the DeepStream `pose_render_cpu` reference, supporting webcam, video file, and headless `--output` recording paths.  \nWithin the PipeGen benchmark collection, it adds a focused two-model parallel pipeline that pairs detection with pose in a single per-frame fan-out, complementing the broader four-model `multi-model-perception-dashboard` with a smaller, more targeted concurrency example.\n",
+  "benchmark_subfolder": "WorkerFallDetection",
+  "chat_history": [
+    {
+      "content": "Build a real-time human pose estimation pipeline for fall detection.\n\nInput: a video file at /home/dread/videos/fall_test.mp4 for now (later the live camera).\nModel: a 2D human pose estimation model that outputs the 17 COCO body keypoints\n(nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles) with a\nconfidence score per keypoint, plus a person bounding box. Pick a small or\nmedium model: the GPU is a GeForce GTX 1650 with 4 GB memory.\nCompile the model to a TensorRT FP16 engine (an INT8 engine as well if possible,\nfor comparison) and give the speed report.\n\nOutput: for every frame, write one JSON line to /home/dread/pipegen_out/keypoints.jsonl\ncontaining the frame timestamp in seconds, and for each detected person their id,\nbounding box and the 17 keypoints as [x, y, confidence] in pixel coordinates.\nAlso show the video with the skeleton drawn on it.\nBlur the person before saving any frame.",
+      "role": "user"
+    },
+    {
+      "content": "I understand you want pose estimates and person IDs from the supplied video, with JSONL and a skeleton display, plus FP16/INT8 TensorRT comparison and a speed report. I’ve recorded fall detection as a task, but need your definition of what counts as a fall before it can be configured.\n\nA few details change how this is built; answer them below, or say proceed to keep the defaults.\n\nNo method kept on person tracking: a tracker's method is recorded only when you name one.",
+      "role": "assistant"
+    },
+    {
+      "content": "What pose or time condition should count as a fall? I’ll provide a custom condition",
+      "role": "user"
+    },
+    {
+      "content": "I’ve recorded that you’ll provide the custom fall condition later, and kept the requested FP16/INT8 comparison and speed report. The fall-detection condition itself remains unspecified.\n\nSome inputs need a fix; see the card.",
+      "role": "assistant"
+    },
+    {
+      "content": "Inputs: input1 · video file for now (later the live camera) · Video file · C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4",
+      "role": "user"
+    },
+    {
+      "content": "Some inputs need a fix; see the card.",
+      "role": "assistant"
+    },
+    {
+      "content": "Inputs: input1 · video file for now (later the live camera) · Video file · C:\\Users\\dread\\Videos\\fall_test.mp4",
+      "role": "user"
+    },
+    {
+      "content": "Some inputs need a fix; see the card.",
+      "role": "assistant"
+    },
+    {
+      "content": "Inputs: input1 · video file for now (later the live camera) · Video file · fall_test.mp4",
+      "role": "user"
+    },
+    {
+      "content": "Inputs confirmed: 1.\n\nOutputs taken from your description: out1 · metadata_file · url /home/dread/pipegen_out/keypoints.jsonl; out2 · live_display · layout overlay; out3 · metadata_file · url /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json. Say **review outputs** to change them on a card.\n\nI’ve recorded the requested person blur; a few camera and scene details remain.\n\nA few questions about the scene and camera below: Continue applies what the card shows, Skip adds no step.",
+      "role": "assistant"
+    },
+    {
+      "content": "Scene and camera: Does this camera move? Fixed · Hide before saving or sending? Whole people · How is the light? Normal or not sure · How is it mounted? Level or not sure",
+      "role": "user"
+    },
+    {
+      "content": "Added from the scene: People blur before out2 (live display) on input1, on every frame (you answered Whole people; you said “Blur the person before saving any frame.”) · catalogue §6 Privacy\n\nMore questions about the scene and camera below: Continue applies what the card shows, Skip keeps the scene as it is.",
+      "role": "assistant"
+    },
+    {
+      "content": "Scene and camera: How big are the targets? Not sure",
+      "role": "user"
+    },
+    {
+      "content": "Kept from the scene: People blur before out2 (live display) on input1, on every frame · catalogue §6 Privacy\n\nDraft v1: **1 input(s)** → **fall detection, human pose estimation, person tracking** (+1 from the scene) → **metadata_file, live_display, metadata_file**. Correct it here, or press **Finalize flow**.",
+      "role": "assistant"
+    },
+    {
+      "content": "finalize the flow",
+      "role": "user"
+    },
+    {
+      "content": "Flow locked. Now the details, one task at a time: 3 of 3 to go.\n\nPose estimation is configured for 17 COCO keypoints with per-keypoint confidence, pixel coordinates, and person boxes, using a small or medium model on the specified GPU. The video, JSONL output, skeleton display, privacy blur, and speed-report requirements are recorded.\n\n**human pose estimation on input1 (video file for now (later the live came…)** done. Next: **person tracking on input1 (video file for now (later the live came…)**.\n\nPerson tracking is settled: maintain per-person IDs across frames for the keypoint output and fall detection.\n\n**person tracking on input1 (video file for now (later the live came…)** done. Next: **fall detection on input1 (video file for now (later the live came…)**.\n\nThe fall detector is designated to use your custom condition, but its actual trigger rule is still unspecified. What exact pose or tracking condition should count as a fall?",
+      "role": "assistant"
+    },
+    {
+      "content": "fall detection on input1 (video file for now (later the live came…): What exact pose or tracking condition should count as a fall? Rapid hip drop (faster than 1.2 torso lengths per second), then within 1.5 s the torso stays more than 60 degrees from vertical with hips near the floor, held for 3 seconds.",
+      "role": "user"
+    },
+    {
+      "content": "The fall rule now includes the rapid hip drop, tilted posture, 1.5-second sequence window, and 3-second hold. How should “hips near the floor” be determined in this video?",
+      "role": "assistant"
+    },
+    {
+      "content": "fall detection on input1 (video file for now (later the live came…): How should “hips near the floor” be determined in this video? Hips are near the floor when the hip midpoint is less than 0.5 torso lengths above the floor line, where the floor line is the lowest ankle y-position seen while the person stands upright during the first seconds of the video.",
+      "role": "user"
+    },
+    {
+      "content": "Updated the fall rule with the hip-to-floor criterion; I used the first 3 seconds as the default calibration window for finding the floor line from the person’s upright ankle positions.\n\nAll tasks are detailed. This is the final flow with your conditions; continue to sources, or change something.\n\nKept the fall detection step's settings as its task has them: they come from its method and details; say what to change.",
+      "role": "assistant"
+    },
+    {
+      "content": "continue to sources",
+      "role": "user"
+    },
+    {
+      "content": "Code for human pose estimation on input1 (video file for now (later the live came…): choose a local repository folder or model file, or the catalog, for each task below, or paste a path here.",
+      "role": "assistant"
+    },
+    {
+      "content": "human pose estimation on input1 (video file for now (later the live came…) → catalog · precision FP16",
+      "role": "user"
+    },
+    {
+      "content": "Catalog matches for human pose estimation on input1 (video file for now (later the live came…). Suggested: **A** covers all 1 task(s). Tick the ones to use, or paste a local path.",
+      "role": "assistant"
+    },
+    {
+      "content": "B) WorkerFallDetection instead please",
+      "role": "user"
+    },
+    {
+      "content": "- **src1** · WorkerFallDetection → human pose estimation on input1 (video file for now (later the live came…) · `application.py` · `yolo11s-pose.onnx` (scanned)\n\nAll 16 requirement checks pass.\n\nPress **Generate PIR** to build the pipeline graph. You can still change anything here first.",
+      "role": "assistant"
+    }
+  ],
+  "chat_name": "Human Pose Tracking and Fall Detection",
+  "checks": {
+    "failed": 0,
+    "groups": [
+      {
+        "failed": 0,
+        "name": "Inputs",
+        "passed": 1,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Tasks",
+        "passed": 6,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Sources",
+        "passed": 4,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Outputs",
+        "passed": 3,
+        "warned": 0
+      },
+      {
+        "failed": 0,
+        "name": "Handoff",
+        "passed": 2,
+        "warned": 0
+      }
+    ],
+    "passed": true,
+    "results": [
+      {
+        "fix": null,
+        "group": "Inputs",
+        "id": "input.input1",
+        "message": "input1: /home/dread/videos/fall_test.mp4 (1280x720 · 15.08)",
+        "name": "input1 file",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "classes.src1.human pose estimation@input1",
+        "message": "src1 supports person → Decoded person bounding boxes and 17 COCO keypoints as pixel-space coordinates with per-keypoint visibility/confidence; the model output is [1, 8400, 56]. for human pose estimation@input1.",
+        "name": "human pose estimation@input1 capabilities",
+        "status": "pass"
+      },
+      {
+        "fix": "sources",
+        "group": "Tasks",
+        "id": "tasks.covered",
+        "message": "All tasks are covered.",
+        "name": "every task has a source",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.1.input",
+        "message": "human pose estimation runs on input1",
+        "name": "human pose estimation input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.2.input",
+        "message": "person tracking runs on input1",
+        "name": "person tracking input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "task.3.input",
+        "message": "fall detection runs on input1",
+        "name": "fall detection input",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src1.root",
+        "message": "src1: /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+        "name": "src1 folder",
+        "status": "pass"
+      },
+      {
+        "fix": "reanalyse",
+        "group": "Sources",
+        "id": "source.src1.entry",
+        "message": "src1: `python application.py /home/dread/videos/fall_test.mp4` → application.py",
+        "name": "src1 run command",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Sources",
+        "id": "source.src1.model.yolo11s-pose.onnx",
+        "message": "src1: yolo11s-pose.onnx reads fine.",
+        "name": "src1 model yolo11s-pose.onnx",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Outputs",
+        "id": "output.out1.destination",
+        "message": "out1: metadata_file → /home/dread/pipegen_out/keypoints.jsonl",
+        "name": "out1 destination",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Outputs",
+        "id": "output.out2.destination",
+        "message": "out2: live_display on this machine",
+        "name": "out2 destination",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Outputs",
+        "id": "output.out3.destination",
+        "message": "out3: metadata_file → /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json",
+        "name": "out3 destination",
+        "status": "pass"
+      },
+      {
+        "fix": "ask",
+        "group": "Tasks",
+        "id": "algorithm.3",
+        "message": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+        "name": "custom step 3 reference",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Tasks",
+        "id": "scene.step.3",
+        "message": "People blur: pre_output, for human pose estimation@input1, person tracking@input1, fall detection@input1.",
+        "name": "People blur placement",
+        "status": "pass"
+      },
+      {
+        "fix": "ask",
+        "group": "Handoff",
+        "id": "contract",
+        "message": "1 task(s), 1 source(s), 1 model(s).",
+        "name": "handoff contract",
+        "status": "pass"
+      },
+      {
+        "fix": null,
+        "group": "Handoff",
+        "id": "pir.readiness",
+        "message": "The PIR stage can start from the captured evidence.",
+        "name": "PIR readiness",
+        "status": "pass"
+      }
+    ],
+    "version": 1,
+    "warned": 0
+  },
+  "class_waivers": [],
+  "clone_base_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd",
+  "clone_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+  "delivered_references": {
+    "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py": "1792079217752143127"
+  },
+  "flow_draft": {
+    "connections": [
+      {
+        "from": "input1",
+        "to": "task:human pose estimation@input1"
+      },
+      {
+        "from": "task:human pose estimation@input1",
+        "to": "task:person tracking@input1"
+      },
+      {
+        "from": "task:human pose estimation@input1",
+        "to": "task:fall detection@input1"
+      },
+      {
+        "from": "task:person tracking@input1",
+        "to": "task:fall detection@input1"
+      },
+      {
+        "from": "task:fall detection@input1",
+        "to": "logic:3"
+      },
+      {
+        "from": "task:fall detection@input1",
+        "to": "out1"
+      },
+      {
+        "from": "logic:3",
+        "to": "out2"
+      },
+      {
+        "from": "task:fall detection@input1",
+        "to": "out3"
+      }
+    ],
+    "finalized": true,
+    "label": "Final flow · with your conditions",
+    "nodes": [
+      {
+        "id": "input1",
+        "kind": "input",
+        "name": "input1 · video file for now (later the live camera)",
+        "short_description": "video file · fall_test.mp4 · 1280x720"
+      },
+      {
+        "id": "task:human pose estimation@input1",
+        "kind": "task",
+        "name": "human pose estimation",
+        "short_description": "targets: person · Estimate 2D human pose with the 17 COCO body keypoints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles), a confidence score per keypoint, and a person bounding box. Emit keypoint coordinates as [x, y, confidence] in pixels, with frame timestamps in seconds. Use a small or medium model suitable for the named GPU. Blur the person before saving any frame."
+      },
+      {
+        "id": "task:person tracking@input1",
+        "kind": "task",
+        "name": "person tracking",
+        "short_description": "targets: person · Assign person IDs across frames for the per-person output and fall detection."
+      },
+      {
+        "id": "task:fall detection@input1",
+        "kind": "task",
+        "name": "fall detection",
+        "short_description": "method: Custom pose-based sequential fall rule (assumed; say to change) · targets: person · Detect falls for tracked people using the pose estimates. A fall requires a hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso staying more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. Determine the floor line for each person from the lowest ankle y-position observed while that person stands upright during the first 3 seconds of the video."
+      },
+      {
+        "id": "logic:3",
+        "kind": "logic",
+        "name": "People blur",
+        "placement": "pre_output",
+        "short_description": "Pixelates every person the model finds. Runs before the picture is shown, saved or sent, on every frame."
+      },
+      {
+        "id": "out1",
+        "kind": "output",
+        "name": "out1 · metadata_file",
+        "short_description": "metadata_file · url /home/dread/pipegen_out/keypoints.jsonl"
+      },
+      {
+        "id": "out2",
+        "kind": "output",
+        "name": "out2 · live_display",
+        "short_description": "live_display · layout overlay"
+      },
+      {
+        "id": "out3",
+        "kind": "output",
+        "name": "out3 · metadata_file",
+        "short_description": "metadata_file · url /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+      }
+    ],
+    "version": 2
+  },
+  "form_seq": 10,
+  "is_benchmark": true,
+  "mode": "benchmark",
+  "pending_form": {},
+  "pending_source": {},
+  "phase": "complete",
+  "pipeline_information": {
+    "model_paths": [
+      "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+    ],
+    "pipeline_command": "python application.py /home/dread/videos/fall_test.mp4",
+    "project_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection"
+  },
+  "pipeline_requirements": {
+    "extras": {
+      "compile": {
+        "comparison_precision": "int8",
+        "precision": "fp16",
+        "speed_report": "provide"
+      },
+      "device": "GeForce GTX 1650 with 4 GB memory",
+      "input_roles": {
+        "input1": "video file for now (later the live camera)"
+      },
+      "scene_step": {
+        "advice": [],
+        "answered": {
+          "light__input1": "normal",
+          "motion__input1": "fixed",
+          "mount__input1": "level",
+          "privacy__input1": [
+            "people"
+          ],
+          "size__input1": "not_sure"
+        },
+        "declined": [],
+        "inputs": {
+          "input1": {
+            "basis": {
+              "asks": [],
+              "kind": "video file",
+              "mtime": 1792079156.7107341,
+              "size": 6833708,
+              "tasks": [
+                "human pose estimation@input1"
+              ],
+              "url": "/home/dread/videos/fall_test.mp4"
+            },
+            "cues": [
+              "camera_fixed",
+              "blur_people"
+            ],
+            "duty": {
+              "colour_cast": 0.417,
+              "dock_daylight": 0.0,
+              "haze": 0.833,
+              "low_light_after_dark": 0.0
+            },
+            "evidence": [
+              "The view holds still between frames, so the camera looks fixed."
+            ],
+            "footage": {
+              "chroma_offset": 0.023,
+              "clipped_fraction": 0.002,
+              "dark_fraction": 0.011,
+              "fps": 15.56,
+              "frames": 187,
+              "height": 720,
+              "mean_chroma": 8.3,
+              "motion": "fixed",
+              "noise": 0.11,
+              "p50": 0.514,
+              "rms_contrast": 0.14,
+              "rules": [],
+              "samples": 12,
+              "source": "video file",
+              "suggest": [],
+              "width": 1280
+            },
+            "said": {
+              "blur_people": "Blur the person before saving any frame."
+            },
+            "skipped": false
+          }
+        },
+        "ledger": [
+          "People blur@input1"
+        ],
+        "needs": [],
+        "privacy_source": [],
+        "rules": {
+          "camera_angled": [],
+          "camera_fixed": [
+            "input1"
+          ],
+          "camera_moving": [],
+          "camera_shakes": [],
+          "motion_unknown": [],
+          "no_cloud": [],
+          "privacy": [
+            "input1"
+          ],
+          "small_objects": [],
+          "store_events_only": []
+        },
+        "version": 1
+      }
+    },
+    "inputs": [
+      {
+        "data_kind": [
+          "frames"
+        ],
+        "fps": 15.08,
+        "id": "input1",
+        "resolution": "1280x720",
+        "role": "video file for now (later the live camera)",
+        "type": "video file",
+        "url": "/home/dread/videos/fall_test.mp4"
+      }
+    ],
+    "needs_model": null,
+    "outputs": [
+      {
+        "id": "out1",
+        "type": "metadata_file",
+        "url": "/home/dread/pipegen_out/keypoints.jsonl"
+      },
+      {
+        "id": "out2",
+        "layout": "overlay",
+        "type": "live_display"
+      },
+      {
+        "id": "out3",
+        "type": "metadata_file",
+        "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+      }
+    ],
+    "parallel": false,
+    "special_algorithms": [
+      {
+        "applies_to": [
+          "human pose estimation@input1"
+        ],
+        "category": "tracking",
+        "confirmed": true,
+        "description": "Assign person IDs across frames for the per-person output and fall detection.",
+        "name": "person tracking",
+        "reference_path": null
+      },
+      {
+        "applies_to": [
+          "human pose estimation@input1",
+          "person tracking@input1"
+        ],
+        "category": "other",
+        "confirmed": true,
+        "description": "Detect falls using the human pose estimates and tracked people. Fall condition: hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso remaining more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. For each person, estimate the floor line from the lowest ankle y-position observed while they stand upright during the first 3 seconds of the video.",
+        "name": "fall detection",
+        "parameters": {
+          "floor_line_calibration_window_seconds": 3,
+          "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+          "hip_midpoint_max_height_above_floor_tors": 0.5,
+          "hold_seconds": 3,
+          "method": "Custom pose-based sequential fall rule",
+          "rules": [
+            {
+              "name": "Rapid hip drop",
+              "speed_faster_than_torso_lengths_per_seco": 1.2
+            },
+            {
+              "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+              "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+              "name": "Tilted posture and hips near floor",
+              "torso_angle_from_vertical_degrees": ">60",
+              "within_seconds": 1.5
+            },
+            {
+              "name": "Hold fall posture",
+              "seconds": 3
+            }
+          ],
+          "sequence_window_seconds": 1.5,
+          "torso_angle_from_vertical_degrees": 60
+        },
+        "reference_path": null
+      },
+      {
+        "applies_to": [
+          "human pose estimation@input1",
+          "person tracking@input1",
+          "fall detection@input1"
+        ],
+        "catalogue": "§6 Privacy",
+        "category": "other",
+        "condition": "Every frame, on the boxes its source task finds; after the model and before every picture output.",
+        "confirmed": true,
+        "cue": [
+          "blur_people"
+        ],
+        "description": "Pixelates every person the model finds. Added because input1 must not show people in saved or sent pictures.",
+        "group": 6,
+        "name": "People blur",
+        "parameters": {
+          "ops": [
+            {
+              "cell": 16,
+              "classes": [
+                "person"
+              ],
+              "mode": "pixelate",
+              "op": "pixelate_boxes",
+              "region": "person",
+              "source": "human pose estimation@input1"
+            }
+          ]
+        },
+        "placement": {
+          "order": 50,
+          "position": "pre_output"
+        },
+        "reference_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+        "source": "scene"
+      }
+    ],
+    "target_classes": [],
+    "task_kind": null,
+    "tasks": [
+      {
+        "details": "Estimate 2D human pose with the 17 COCO body keypoints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles), a confidence score per keypoint, and a person bounding box. Emit keypoint coordinates as [x, y, confidence] in pixels, with frame timestamps in seconds. Use a small or medium model suitable for the named GPU. Blur the person before saving any frame.",
+        "for_input": "input1",
+        "needs_model": true,
+        "target_classes": [
+          "person"
+        ],
+        "type": "human pose estimation"
+      },
+      {
+        "derives_from": [
+          "human pose estimation@input1"
+        ],
+        "details": "Assign person IDs across frames for the per-person output and fall detection.",
+        "for_input": "input1",
+        "needs_model": false,
+        "target_classes": [
+          "person"
+        ],
+        "type": "person tracking"
+      },
+      {
+        "derives_from": [
+          "human pose estimation@input1",
+          "person tracking@input1"
+        ],
+        "details": "Detect falls for tracked people using the pose estimates. A fall requires a hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso staying more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. Determine the floor line for each person from the lowest ankle y-position observed while that person stands upright during the first 3 seconds of the video.",
+        "for_input": "input1",
+        "method": {
+          "catalogue": null,
+          "from": "default",
+          "name": "Custom pose-based sequential fall rule",
+          "params": {
+            "floor_line_calibration_window_seconds": 3,
+            "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+            "hip_midpoint_max_height_above_floor_tors": 0.5,
+            "hold_seconds": 3,
+            "sequence_window_seconds": 1.5,
+            "torso_angle_from_vertical_degrees": 60
+          },
+          "rules": [
+            {
+              "catalogue": null,
+              "name": "Rapid hip drop",
+              "params": {
+                "speed_faster_than_torso_lengths_per_seco": 1.2
+              }
+            },
+            {
+              "catalogue": null,
+              "name": "Tilted posture and hips near floor",
+              "params": {
+                "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+                "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+                "torso_angle_from_vertical_degrees": ">60",
+                "within_seconds": 1.5
+              }
+            },
+            {
+              "catalogue": null,
+              "name": "Hold fall posture",
+              "params": {
+                "seconds": 3
+              }
+            }
+          ]
+        },
+        "needs_model": false,
+        "target_classes": [
+          "person"
+        ],
+        "type": "fall detection"
+      }
+    ],
+    "user_intent_summary": "Estimate and track 2D human poses in the supplied video, detect falls using a custom condition I’ll provide, write per-frame keypoints and IDs to JSONL, and display the video with a skeleton."
+  },
+  "repo_sources": [
+    {
+      "analysis_summaries": [
+        "This repository contains a single-image sanity-test application for a YOLO11s-Pose ONNX model. It preprocesses an image with RGB letterboxing to 640×640, then runs the model and decodes person boxes and 17 COCO keypoints with NMS. The script can draw poses and uses a simple orientation heuristic to estimate fall-like posture from one still image; that heuristic is not a trained fall classifier. The provided task input is a video file, but the application is documented as single-image-only and does not establish video-frame or timestamp handling.",
+        "[read_file]: application.py: \"\"\"Single-image sanity test for the WorkerFallDetection YOLO11s-Pose ONNX\nmodel (see /home/kushal/Craftifai/UseCases/WorkerFallDetection/DeepStream/pgie.txt).\n\nModel: Models/yolo11s-pose.onnx\n  - Ultralytics YOLO11s-Pose, single class (\"person\", Models/labels.txt),\n    17 COCO keypoints. Exported via Models/export_yolo11_pose.py, which is\n    the marcoslucianops DeepStream-Yolo-Pose convention: the raw Ultralytics\n    head output [1, 56, 8400] is wrapped in a `DeepStreamOutput` module that\n    j"
+      ],
+      "architecture": {
+        "connections": [
+          {
+            "from": "n1",
+            "to": "n2"
+          },
+          {
+            "from": "n2",
+            "to": "n3"
+          },
+          {
+            "from": "n3",
+            "to": "n4"
+          },
+          {
+            "from": "n4",
+            "to": "n5"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n1",
+            "name": "Image input",
+            "short_description": "The application is documented as a single-image sanity test."
+          },
+          {
+            "id": "n2",
+            "name": "Letterbox preprocessing",
+            "short_description": "Resizes to 640×640 with aspect ratio preserved, symmetric grey padding, RGB ordering, and 1/255 scaling."
+          },
+          {
+            "id": "n3",
+            "name": "YOLO11s-Pose ONNX",
+            "short_description": "Produces candidate person boxes and 17 COCO keypoints per candidate."
+          },
+          {
+            "id": "n4",
+            "name": "Pose decoding and NMS",
+            "short_description": "Interprets box, confidence, keypoint-coordinate, and visibility columns and applies single-class NMS."
+          },
+          {
+            "id": "n5",
+            "name": "Fall heuristic and visualization",
+            "short_description": "The script estimates fall-like posture from box shape and shoulder-to-hip orientation, then draws results for the still-image sanity check."
+          }
+        ]
+      },
+      "class_coverage": {
+        "human pose estimation@input1": {
+          "targets": [
+            {
+              "basis": "application.py documents the YOLO11s-Pose output layout, NMS decoding, and COCO-17 keypoint names. The model label file identifies the person class.",
+              "kind": "structured_output",
+              "labels": [],
+              "model_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx",
+              "output": "Decoded person bounding boxes and 17 COCO keypoints as pixel-space coordinates with per-keypoint visibility/confidence; the model output is [1, 8400, 56].",
+              "requested": "person",
+              "status": "supported"
+            }
+          ],
+          "version": 1
+        }
+      },
+      "class_coverage_signature": "0d1d6d67a13f21da180f91ec",
+      "covers_tasks": [
+        "human pose estimation@input1"
+      ],
+      "id": "src1",
+      "label_space": {
+        "count": 1,
+        "labels": [
+          "person"
+        ],
+        "source": "Models/labels.txt",
+        "version": 3
+      },
+      "model_paths": [
+        "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+      ],
+      "model_roles": [
+        {
+          "for_task": "human pose estimation@input1",
+          "path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx",
+          "role": "Produces person bounding boxes and 17 COCO keypoints with per-keypoint visibility/confidence; the decoder applies NMS."
+        }
+      ],
+      "pipeline_command": "python application.py /home/dread/videos/fall_test.mp4",
+      "project_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+      "scan_hash": "65643f74602f021acde333095c18ebfbd417e8c8d4c087418c924ec55bb353c9",
+      "source": "benchmark",
+      "subfolder": "WorkerFallDetection",
+      "unused_models": []
+    }
+  ],
+  "req_stage": "complete",
+  "requirement_profile": {
+    "clarify": {
+      "fall_condition": {
+        "label": "What pose or time condition should count as a fall?",
+        "value": "I’ll provide a custom condition"
+      }
+    },
+    "code": [],
+    "inputs": {
+      "input1": {}
+    },
+    "outputs": {
+      "out1": {},
+      "out2": {},
+      "out3": {}
+    },
+    "tasks": {
+      "fall detection@input1": {
+        "fall_condition": {
+          "label": "What exact pose or tracking condition should count as a fall?",
+          "value": "Rapid hip drop (faster than 1.2 torso lengths per second), then within 1.5 s the torso stays more than 60 degrees from vertical with hips near the floor, held for 3 seconds."
+        },
+        "hips_near_floor": {
+          "label": "How should “hips near the floor” be determined in this video?",
+          "value": "Hips are near the floor when the hip midpoint is less than 0.5 torso lengths above the floor line, where the floor line is the lowest ankle y-position seen while the person stands upright during the first seconds of the video."
+        }
+      }
+    }
+  },
+  "scan_hits": [
+    {
+      "analysis_cached": false,
+      "cache_hit": false,
+      "hash": "65643f74602f021acde333095c18ebfbd417e8c8d4c087418c924ec55bb353c9",
+      "source": "src1"
+    }
+  ],
+  "source_strategy": "separate",
+  "task_checklist": {
+    "active": null,
+    "items": [
+      {
+        "id": 1,
+        "indices": [
+          0
+        ],
+        "keys": [
+          "human pose estimation@input1"
+        ],
+        "label": "human pose estimation on input1 (video file for now (later the live came…)",
+        "round": 0,
+        "status": "done",
+        "summary": "Estimate 2D poses for people in the supplied video and emit 17 COCO keypoints, confidence scores, and person boxes; use a small or medium model on the specified"
+      },
+      {
+        "id": 2,
+        "indices": [
+          1
+        ],
+        "keys": [
+          "person tracking@input1"
+        ],
+        "label": "person tracking on input1 (video file for now (later the live came…)",
+        "round": 0,
+        "status": "done",
+        "summary": "Track people across frames and assign IDs for per-person output and fall detection."
+      },
+      {
+        "id": 3,
+        "indices": [
+          2
+        ],
+        "keys": [
+          "fall detection@input1"
+        ],
+        "label": "fall detection on input1 (video file for now (later the live came…)",
+        "round": 2,
+        "status": "done",
+        "summary": "Fall detection now uses the specified rapid hip drop, tilted held posture, and hip-midpoint distance below 0.5 torso lengths from a floor line calibrated from u"
+      }
+    ],
+    "version": 4
+  },
+  "typed_on_cards": {
+    "10": [],
+    "12": [],
+    "16": [
+      "Rapid hip drop (faster than 1.2 torso lengths per second), then within 1.5 s the torso stays more than 60 degrees from vertical with hips near the floor, held for 3 seconds."
+    ],
+    "18": [
+      "Hips are near the floor when the hip midpoint is less than 0.5 torso lengths above the floor line, where the floor line is the lowest ankle y-position seen while the person stands upright during the first seconds of the video."
+    ],
+    "2": [],
+    "22": [],
+    "4": [
+      "C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4"
+    ],
+    "6": [
+      "C:\\Users\\dread\\Videos\\fall_test.mp4"
+    ],
+    "8": [
+      "/home/dread/videos/fall_test.mp4"
+    ]
+  },
+  "understanding": {
+    "answered": {
+      "compile": "TensorRT FP16, and INT8 as well if possible, for comparison",
+      "device": "GeForce GTX 1650 with 4 GB memory",
+      "display": "Show the video with the skeleton drawn on it",
+      "fall_condition": "I’ll provide a custom condition",
+      "input": "video file at /home/dread/videos/fall_test.mp4 for now; live camera later",
+      "jsonl": "One line per frame at /home/dread/pipegen_out/keypoints.jsonl, with timestamp in seconds and each person's id, bounding box, and keypoints as pixel-coordinate [x, y, confidence] values",
+      "model_size": "small or medium",
+      "pose_output": "17 COCO body keypoints with per-keypoint confidence and a person bounding box",
+      "privacy": "Blur the person before saving any frame",
+      "speed_report": "Provide a speed report"
+    },
+    "asked": [
+      "What pose or time condition should count as a fall?",
+      "What exact pose or tracking condition should count as a fall?",
+      "How should “hips near the floor” be determined in this video?"
+    ],
+    "defaulted": {
+      "inputs": {},
+      "outputs": {}
+    },
+    "deferred": [],
+    "input_count": 1,
+    "input_fields": [],
+    "notes": [
+      "turn 1: Recorded only the supplied video file; the later live camera is not yet a described input.",
+      "turn 1: Person IDs and fall detection require identities across frames, so tracking is recorded as a derived task.",
+      "turn 1: Fall detection is requested, but its defining pose/time condition cannot be safely inferred; left its method unset pending your answer.",
+      "turn 1: Recorded FP16 as the primary TensorRT precision and INT8 as the requested comparison; the named GPU is recorded as the device.",
+      "turn 1: Used a metadata-file output for the requested speed report; its destination was not specified and is left for the host to fill.",
+      "turn 1: No saved frame or video output was explicitly requested; retained the blur-before-saving constraint in the pose task details.",
+      "turn 2: The user has not supplied the actual fall condition; recorded that they will provide it later rather than inventing one.",
+      "turn 2: The fall-condition question was already asked, so it is not repeated.",
+      "turn 2: The user requested a speed report; recorded this with the stated model-compilation requirements."
+    ],
+    "output_fields": [],
+    "question_turns": 1,
+    "taken": [
+      "outputs"
+    ]
+  }
+}

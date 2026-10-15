@@ -1,0 +1,737 @@
+{
+  "loop": {
+    "next_file": null,
+    "next_task": null,
+    "projectTree": {},
+    "target_function": {
+      "name": "read_file",
+      "parameters": {}
+    },
+    "visited_steps": [
+      "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+      "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/application.py",
+      "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+    ]
+  },
+  "pipeline_ir": {
+    "connections": [
+      [
+        "p01o_frame",
+        "p02i_frame"
+      ],
+      [
+        "p02o_blob",
+        "p03i_blob"
+      ],
+      [
+        "p03o_raw",
+        "p04i_raw"
+      ],
+      [
+        "p02o_geometry",
+        "p04i_geometry"
+      ],
+      [
+        "p04o_poses",
+        "p05i_poses"
+      ],
+      [
+        "p01o_clock",
+        "p05i_clock"
+      ],
+      [
+        "p05o_tracked",
+        "p06i_tracked"
+      ],
+      [
+        "p01o_clock",
+        "p06i_clock"
+      ],
+      [
+        "p01o_frame",
+        "p07i_frame"
+      ],
+      [
+        "p06o_result",
+        "p07i_result"
+      ],
+      [
+        "p06o_result",
+        "p08i_result"
+      ],
+      [
+        "p07o_frame",
+        "p09i_frame"
+      ],
+      [
+        "p06o_result",
+        "p09i_result"
+      ],
+      [
+        "p06o_result",
+        "p10i_result"
+      ]
+    ],
+    "nodes": [
+      {
+        "description": "Read every video frame and emit synchronized source metadata.",
+        "id": 1,
+        "name": "file",
+        "ports": [
+          {
+            "direction": "output",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p01o_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                720,
+                1280,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p01o_clock",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import cv2\ncap = cv2.VideoCapture('/home/dread/videos/fall_test.mp4')\nif not cap.isOpened(): raise RuntimeError('Cannot open input video')\nfps = cap.get(cv2.CAP_PROP_FPS)\nif fps <= 0: fps = 15.08\nframe_index = 0\nwhile True:\n    ok, frame = cap.read()\n    if not ok: break\n    height, width = frame.shape[:2]\n    timestamp_s = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0\n    if not (timestamp_s >= 0 and timestamp_s < float('inf')) or (frame_index > 0 and timestamp_s == 0):\n        timestamp_s = frame_index / fps\n    emit('p01o_frame', frame)\n    emit('p01o_clock', {'frame_index': frame_index, 'timestamp_s': float(timestamp_s), 'width': width, 'height': height})\n    frame_index += 1\ncap.release()",
+        "resolution": [
+          1280,
+          720
+        ],
+        "type": "input",
+        "url": "file:///home/dread/videos/fall_test.mp4"
+      },
+      {
+        "color_order": "RGB",
+        "description": "Symmetrically letterbox video frames and create normalized RGB tensors.",
+        "id": 2,
+        "mean": null,
+        "normalization": 0.003921569790691137,
+        "offset": null,
+        "pad_value": 114,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p02i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                720,
+                1280,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p02o_blob",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p02o_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import cv2\nimport numpy as np\ndef process(frame):\n    orig_h, orig_w = frame.shape[:2]\n    gain = min(640 / orig_w, 640 / orig_h)\n    new_w, new_h = round(orig_w * gain), round(orig_h * gain)\n    pad_w, pad_h = (640 - new_w) / 2, (640 - new_h) / 2\n    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)\n    top, bottom = round(pad_h - 0.1), round(pad_h + 0.1)\n    left, right = round(pad_w - 0.1), round(pad_w + 0.1)\n    letterboxed = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))\n    rgb = cv2.cvtColor(letterboxed, cv2.COLOR_BGR2RGB)\n    blob = np.ascontiguousarray((rgb.astype(np.float32) * 0.0039215697906911373).transpose(2, 0, 1)[None, ...])\n    return blob, {'gain': gain, 'pad_w': pad_w, 'pad_h': pad_h, 'orig_w': orig_w, 'orig_h': orig_h}",
+        "resize": [
+          640,
+          640
+        ],
+        "resize_mode": "letterbox",
+        "scale": 0.003921569790691137,
+        "std": null,
+        "type": "preprocess"
+      },
+      {
+        "batchSize": 1,
+        "description": "Run single-frame YOLO11s pose inference using TensorRT FP16.",
+        "id": 3,
+        "layout": "NCHW",
+        "model": {
+          "inputs": [
+            {
+              "dtype": "fp32",
+              "name": "input",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          ],
+          "name": "YOLO11s-Pose",
+          "outputs": [
+            {
+              "dtype": "fp32",
+              "name": "output",
+              "shape": [
+                1,
+                8400,
+                56
+              ]
+            }
+          ],
+          "parameter_count": 9902940,
+          "type": "engine",
+          "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/model_stage/yolo11s-pose.fp16.plan",
+          "source_onnx": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p03i_blob",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p03o_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                8400,
+                56
+              ]
+            }
+          }
+        ],
+        "pseudo_code": "import time\nimport onnxruntime as ort\nmodel_path = '/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx'\nproviders = [('TensorrtExecutionProvider', {'trt_fp16_enable': True, 'trt_engine_cache_enable': True}), 'CUDAExecutionProvider']\nsession = ort.InferenceSession(model_path, providers=providers)\nlatencies_s = []\ndef process(blob):\n    start = time.perf_counter()\n    raw = session.run(['output'], {'input': blob})[0]\n    latencies_s.append(time.perf_counter() - start)\n    return raw\ndef speed_report():\n    if not latencies_s: return {'frames': 0}\n    ordered = sorted(latencies_s)\n    return {'precision': 'fp16', 'frames': len(ordered), 'mean_inference_ms': 1000 * sum(ordered) / len(ordered), 'p50_inference_ms': 1000 * ordered[len(ordered) // 2], 'p95_inference_ms': 1000 * ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))], 'inference_fps': len(ordered) / sum(ordered)}\n# At end of stream, report measured FP16 results. Build and benchmark a separate INT8 engine only if suitable calibration data and supported TensorRT INT8 compilation are available; do not label an uncalibrated run INT8.",
+        "type": "inference"
+      },
+      {
+        "description": "Decode person boxes and COCO keypoints with single-class NMS.",
+        "id": 4,
+        "label_file_path": "file:///home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/labels.txt",
+        "num_classes": 1,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p04i_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                8400,
+                56
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p04i_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p04o_poses",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import cv2\nimport numpy as np\nKEYPOINT_NAMES = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder','left_elbow','right_elbow','left_wrist','right_wrist','left_hip','right_hip','left_knee','right_knee','left_ankle','right_ankle']\ndef process(output, geometry):\n    # Model already decodes xyxy boxes, keypoint pixel locations and sigmoid confidences; no anchor or PAF decoding is needed.\n    preds = output[0]  # 8400 rows: x1,y1,x2,y2,conf,(kx,ky,kv)*17; 640-space pixels\n    preds = preds[preds[:, 4] >= 0.25]\n    if len(preds) == 0: return []\n    boxes_xyxy = preds[:, :4]\n    scores = preds[:, 4]\n    keypoints = preds[:, 5:].reshape(-1, 17, 3)\n    boxes_xywh = np.stack([boxes_xyxy[:, 0], boxes_xyxy[:, 1], boxes_xyxy[:, 2] - boxes_xyxy[:, 0], boxes_xyxy[:, 3] - boxes_xyxy[:, 1]], axis=1)\n    keep = cv2.dnn.NMSBoxes(boxes_xywh.tolist(), scores.tolist(), 0.25, 0.45)\n    keep = np.array(keep).flatten() if len(keep) else []\n    detections = []\n    gain, pad_w, pad_h = geometry['gain'], geometry['pad_w'], geometry['pad_h']\n    for i in keep:\n        x1, y1, x2, y2 = boxes_xyxy[i]\n        x1, y1 = (x1 - pad_w) / gain, (y1 - pad_h) / gain\n        x2, y2 = (x2 - pad_w) / gain, (y2 - pad_h) / gain\n        kpts = []\n        for kx, ky, kv in keypoints[i]:\n            kpts.append([float((kx - pad_w) / gain), float((ky - pad_h) / gain), float(kv)])\n        detections.append({'box': [float(max(0, x1)), float(max(0, y1)), float(min(geometry['orig_w'], x2)), float(min(geometry['orig_h'], y2))], 'score': float(scores[i]), 'label': 'person', 'source': 'human pose estimation@input1', 'keypoints': kpts})\n    return detections",
+        "task": "detection",
+        "threshold": 0.25,
+        "top_items": null,
+        "type": "postprocess"
+      },
+      {
+        "category": "tracking",
+        "description": "Associate current person poses with persistent per-video identities.",
+        "external_assets": [],
+        "id": 5,
+        "inputs": [
+          "person detections with pixel-space boxes and keypoints",
+          "frame metadata"
+        ],
+        "name": "person tracking",
+        "outputs": [
+          "current-frame persons with persistent IDs"
+        ],
+        "parameters": {
+          "iou_match_threshold": 0.3,
+          "max_missed_frames": 30
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_nn"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p05i_poses",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p05i_clock",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p05o_tracked",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "tracks = {}\nnext_id = 1\ndef iou(a, b):\n    x1, y1 = max(a[0], b[0]), max(a[1], b[1])\n    x2, y2 = min(a[2], b[2]), min(a[3], b[3])\n    intersection = max(0.0, x2-x1) * max(0.0, y2-y1)\n    area_a = max(0.0, a[2]-a[0]) * max(0.0, a[3]-a[1])\n    area_b = max(0.0, b[2]-b[0]) * max(0.0, b[3]-b[1])\n    union = area_a + area_b - intersection\n    return intersection / union if union > 0 else 0.0\ndef process(detections, clock):\n    global next_id\n    candidates = sorted(((iou(track['box'], det['box']), tid, j) for tid, track in tracks.items() for j, det in enumerate(detections)), reverse=True)\n    used_ids, used_indices, assignment = set(), set(), {}\n    for overlap, tid, j in candidates:\n        if overlap < 0.3: break\n        if tid not in used_ids and j not in used_indices:\n            assignment[j] = tid\n            used_ids.add(tid)\n            used_indices.add(j)\n    for tid in list(tracks):\n        if tid not in used_ids:\n            tracks[tid]['missed'] += 1\n            if tracks[tid]['missed'] > 30: del tracks[tid]\n    current = []\n    for j, det in enumerate(detections):\n        if j in assignment: tid = assignment[j]\n        else:\n            tid = next_id\n            next_id += 1\n        tracks[tid] = {'box': det['box'], 'missed': 0}\n        current.append({**det, 'id': tid})\n    return current  # Never emit retained-but-missed tracks as current people.",
+        "reference_path": null,
+        "runs_every_frame": true,
+        "state_key": "global",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "category": "other",
+        "description": "Calibrate individual floors and evaluate timed sequential fall conditions.",
+        "external_assets": [],
+        "id": 6,
+        "inputs": [
+          "current-frame tracked person poses",
+          "frame timestamp and index"
+        ],
+        "name": "fall detection",
+        "outputs": [
+          "per-frame timestamped persons, fall states and events"
+        ],
+        "parameters": {
+          "floor_line_calibration_window_seconds": 3,
+          "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+          "hip_midpoint_max_height_above_floor_tors": 0.5,
+          "hold_seconds": 3,
+          "keypoint_visibility_threshold": 0.5,
+          "method": "Custom pose-based sequential fall rule",
+          "rules": [
+            {
+              "name": "Rapid hip drop",
+              "speed_faster_than_torso_lengths_per_seco": 1.2
+            },
+            {
+              "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+              "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+              "name": "Tilted posture and hips near floor",
+              "torso_angle_from_vertical_degrees": ">60",
+              "within_seconds": 1.5
+            },
+            {
+              "name": "Hold fall posture",
+              "seconds": 3
+            }
+          ],
+          "sequence_window_seconds": 1.5,
+          "torso_angle_from_vertical_degrees": 60,
+          "upright_calibration_max_angle_degrees": 30
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_tracker"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p06i_tracked",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p06i_clock",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p06o_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import math\nstates = {}\nvideo_start_s = None\ndef midpoint(a, b): return ((a[0]+b[0])/2.0, (a[1]+b[1])/2.0)\ndef process(persons, clock):\n    global video_start_s\n    t = clock['timestamp_s']\n    if video_start_s is None: video_start_s = t\n    present_ids = {p['id'] for p in persons}\n    # A missed observation interrupts a continuous posture hold; retained tracker IDs are not observations.\n    for tid, state in states.items():\n        if tid not in present_ids:\n            state['hold_start'] = None\n            state['prev_hip'] = None\n            state['prev_t'] = None\n            state['drop_t'] = None\n            state['fallen'] = False\n    result = []\n    for person in persons:\n        tid = person['id']\n        state = states.setdefault(tid, {'floor_y': None, 'prev_hip': None, 'prev_t': None, 'drop_t': None, 'hold_start': None, 'fallen': False})\n        k = person['keypoints']\n        pose_valid = all(k[j][2] >= 0.5 for j in (5, 6, 11, 12))\n        hip = None\n        torso = None\n        angle = None\n        if pose_valid:\n            shoulder = midpoint(k[5], k[6])\n            hip = midpoint(k[11], k[12])\n            dx, dy = hip[0]-shoulder[0], hip[1]-shoulder[1]\n            torso = math.hypot(dx, dy)\n            if torso > 0: angle = math.degrees(math.atan2(abs(dx), abs(dy)+1e-6))\n        if t - video_start_s <= 3 and angle is not None and angle <= 30:\n            visible_ankles = [k[j][1] for j in (15, 16) if k[j][2] >= 0.5]\n            if visible_ankles:\n                lowest_y = max(visible_ankles)  # Image y grows downwards.\n                state['floor_y'] = lowest_y if state['floor_y'] is None else max(state['floor_y'], lowest_y)\n        rapid_drop = False\n        if hip is not None and torso is not None and torso > 0 and state['prev_hip'] is not None and state['prev_t'] is not None:\n            dt = t - state['prev_t']\n            if dt > 0:\n                speed_torso_lengths_per_s = (hip[1] - state['prev_hip'][1]) / (torso * dt)\n                rapid_drop = speed_torso_lengths_per_s > 1.2\n        if rapid_drop: state['drop_t'] = t\n        if state['drop_t'] is not None and t - state['drop_t'] > 1.5:\n            state['drop_t'] = None\n            state['hold_start'] = None\n        near_floor = (hip is not None and torso is not None and torso > 0 and state['floor_y'] is not None and (state['floor_y'] - hip[1]) / torso < 0.5)\n        posture = angle is not None and angle > 60 and near_floor\n        if state['drop_t'] is not None and posture and t - state['drop_t'] <= 1.5 and state['hold_start'] is None:\n            state['hold_start'] = t\n        elif state['hold_start'] is not None and not posture:\n            state['hold_start'] = None\n            state['drop_t'] = None\n            state['fallen'] = False\n        fall_event = False\n        if state['hold_start'] is not None and posture and t - state['hold_start'] >= 3 and not state['fallen']:\n            state['fallen'] = True\n            fall_event = True\n        if hip is not None and torso is not None and torso > 0:\n            state['prev_hip'], state['prev_t'] = hip, t\n        else:\n            state['prev_hip'], state['prev_t'] = None, None\n        status = 'floor_uncalibrated' if state['floor_y'] is None else ('fallen' if state['fallen'] else 'fall_posture_pending' if state['hold_start'] is not None else 'observing')\n        result.append({**person, 'fallen': state['fallen'], 'fall_event': fall_event, 'fall_status': status})\n    return {'frame_index': clock['frame_index'], 'timestamp_s': t, 'persons': result, 'fall_events': [{'id': p['id'], 'timestamp_s': t} for p in result if p['fall_event']]}",
+        "reference_path": null,
+        "runs_every_frame": true,
+        "state_key": "track_id",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "category": "other",
+        "description": "Pixelate detected people before the frame reaches display.",
+        "external_assets": [],
+        "id": 7,
+        "inputs": [
+          "original BGR image",
+          "current-frame person boxes in fall result"
+        ],
+        "name": "People blur",
+        "outputs": [
+          "person-pixelated BGR image"
+        ],
+        "parameters": {
+          "ops": [
+            {
+              "cell": 16,
+              "classes": [
+                "person"
+              ],
+              "mode": "pixelate",
+              "op": "pixelate_boxes",
+              "region": "person",
+              "source": "human pose estimation@input1"
+            }
+          ]
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_tracker"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p07i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                720,
+                1280,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p07i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p07o_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                720,
+                1280,
+                3
+              ]
+            }
+          }
+        ],
+        "pseudo_code": "import cv2\nimport numpy as np\nHEAD_SHARE = 0.20\nHEAD_GROW = 0.20\nOPS = ('pixelate_boxes',)\nparams = {'ops': [{'cell': 16, 'classes': ['person'], 'mode': 'pixelate', 'op': 'pixelate_boxes', 'region': 'person', 'source': 'human pose estimation@input1'}]}\ndef _wanted(box, op):\n    classes = [str(c).lower() for c in op.get('classes') or []]\n    label = str(box.get('label') or '').lower()\n    if classes and not any(c == label or c in label for c in classes): return False\n    return not (op.get('source') and box.get('source') and box['source'] != op['source'])\ndef region(box, kind, width, height):\n    x, y, w, h = (float(box[k]) for k in ('left', 'top', 'width', 'height'))\n    if kind == 'head':\n        h = h * HEAD_SHARE\n        x, y, w, h = x - w * HEAD_GROW / 2, y - h * HEAD_GROW / 2, w * (1 + HEAD_GROW), h * (1 + HEAD_GROW)\n    x0, y0 = max(0, int(np.floor(x / 2)) * 2), max(0, int(np.floor(y / 2)) * 2)\n    x1, y1 = min(width, int(np.ceil((x + w) / 2)) * 2), min(height, int(np.ceil((y + h) / 2)) * 2)\n    return (x0, y0, x1, y1) if x1-x0 >= 2 and y1-y0 >= 2 else None\ndef _hide(plane, x0, y0, x1, y1, mode, cell):\n    block = plane[y0:y1, x0:x1]\n    h, w = block.shape[:2]\n    if mode == 'blur':\n        k = max(3, (min(w, h) // 3) | 1)\n        block[...] = cv2.blur(np.ascontiguousarray(block), (k, k))\n        return\n    small = cv2.resize(np.ascontiguousarray(block), (max(1, w // cell), max(1, h // cell)), interpolation=cv2.INTER_AREA)\n    block[...] = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST).reshape(block.shape)\ndef process(frame, result):\n    height, width = frame.shape[:2]\n    planar = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420).reshape(-1)\n    n = height * width\n    y = planar[:n].reshape(height, width).copy()\n    u = planar[n:n+n//4].reshape(height//2, width//2)\n    v = planar[n+n//4:n+n//2].reshape(height//2, width//2)\n    uv = np.stack((u, v), axis=-1).copy()\n    boxes = []\n    for person in result['persons']:\n        x1, y1, x2, y2 = person['box']\n        boxes.append({'left': x1, 'top': y1, 'width': x2-x1, 'height': y2-y1, 'label': person['label'], 'source': person['source']})\n    hidden = 0\n    for op in params.get('ops') or []:\n        if op.get('op') not in OPS: raise ValueError(f\"unknown op {op.get('op')!r}\")\n        kind, mode, cell = op.get('region') or 'person', op.get('mode') or 'pixelate', max(2, int(op.get('cell') or 16))\n        for box in boxes:\n            if not _wanted(box, op): continue\n            area = region(box, kind, width, height)\n            if area is None: continue\n            x0, y0, x1, y1 = area\n            _hide(y, x0, y0, x1, y1, mode, cell)\n            _hide(uv, x0//2, y0//2, x1//2, y1//2, mode, max(1, cell//2))\n            hidden += 1\n    nv12 = np.concatenate((y.reshape(-1), uv.reshape(-1))).reshape(height * 3 // 2, width)\n    return cv2.cvtColor(nv12, cv2.COLOR_YUV2BGR_NV12)",
+        "reference_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+        "runs_every_frame": true,
+        "state_key": "none",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "description": "Write timestamped person IDs, boxes and keypoints every frame.",
+        "grid": null,
+        "id": 8,
+        "name": "json",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p08i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import json\nfrom pathlib import Path\npath = Path('/home/dread/pipegen_out/keypoints.jsonl')\npath.parent.mkdir(parents=True, exist_ok=True)\nstream = path.open('w', encoding='utf-8')\ndef process(result):\n    record = {'frame_index': result['frame_index'], 'timestamp_s': result['timestamp_s'], 'persons': [{'id': p['id'], 'box': p['box'], 'keypoints': p['keypoints'], 'score': p['score'], 'fallen': p['fallen'], 'fall_event': p['fall_event'], 'fall_status': p['fall_status']} for p in result['persons']]}\n    stream.write(json.dumps(record, allow_nan=False) + '\\n')\n    stream.flush()\ndef close(): stream.close()",
+        "resolution": null,
+        "type": "output",
+        "url": "file:///home/dread/pipegen_out/keypoints.jsonl"
+      },
+      {
+        "description": "Display privacy-protected video with tracked skeletons and fall status.",
+        "grid": null,
+        "id": 9,
+        "name": "display",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p09i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                720,
+                1280,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p09i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import cv2\nSKELETON = [(15,13),(13,11),(16,14),(14,12),(11,12),(5,11),(6,12),(5,6),(5,7),(6,8),(7,9),(8,10),(1,2),(0,1),(0,2),(1,3),(2,4),(3,5),(4,6)]\ndef process(pixelated_frame, result):\n    image = pixelated_frame.copy()\n    for person in result['persons']:\n        color = (0,0,255) if person['fallen'] else (0,255,0)\n        x1,y1,x2,y2 = map(int, person['box'])\n        cv2.rectangle(image, (x1,y1), (x2,y2), color, 2)\n        cv2.putText(image, f\"ID {person['id']} {'FALL' if person['fallen'] else person['fall_status']}\", (x1,max(0,y1-8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)\n        k = person['keypoints']\n        for a,b in SKELETON:\n            if k[a][2] >= 0.5 and k[b][2] >= 0.5:\n                cv2.line(image, (int(k[a][0]),int(k[a][1])), (int(k[b][0]),int(k[b][1])), (255,200,0), 2)\n        for x,y,v in k:\n            if v >= 0.5: cv2.circle(image, (int(x),int(y)), 3, (0,165,255), -1)\n    cv2.imshow('Human pose and fall detection', image)\n    cv2.waitKey(1)",
+        "resolution": [
+          1280,
+          720
+        ],
+        "type": "output",
+        "url": null
+      },
+      {
+        "description": "Store per-frame pose results and fall events as JSON.",
+        "grid": null,
+        "id": 10,
+        "name": "json",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 25,
+              "numerator": 377
+            },
+            "id": "p10i_result",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "import json\nfrom pathlib import Path\npath = Path('/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json')\npath.parent.mkdir(parents=True, exist_ok=True)\nstream = path.open('w', encoding='utf-8')\nstream.write('[')\nfirst = True\ndef process(result):\n    global first\n    if not first: stream.write(',\\n')\n    stream.write(json.dumps(result, allow_nan=False))\n    stream.flush()\n    first = False\ndef close():\n    stream.write(']\\n')\n    stream.close()",
+        "resolution": null,
+        "type": "output",
+        "url": "file:///home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+      }
+    ]
+  }
+}

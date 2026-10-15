@@ -1,0 +1,36 @@
+{
+  "graph_sha256": "516af193f9db15651f266d710954202ee349946d615238bf79fd9a8da4070d2d",
+  "bindings": {
+    "inputs": [],
+    "outputs": [
+      {
+        "node_ids": [
+          8
+        ],
+        "output_id": "out1"
+      },
+      {
+        "node_ids": [
+          9
+        ],
+        "output_id": "out2"
+      },
+      {
+        "node_ids": [
+          10
+        ],
+        "output_id": "out3"
+      }
+    ],
+    "tasks": [
+      {
+        "node_ids": [
+          2,
+          3,
+          4
+        ],
+        "task_id": "human pose estimation@input1"
+      }
+    ]
+  }
+}

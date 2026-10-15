@@ -1,0 +1,3585 @@
+{
+  "Req": {
+    "enabled": true,
+    "completed": true,
+    "started_at": 1792078674.4088678,
+    "chat_history": [
+      {
+        "agent": "",
+        "user": "Build a real-time human pose estimation pipeline for fall detection.\n\nInput: a video file at /home/dread/videos/fall_test.mp4 for now (later the live camera).\nModel: a 2D human pose estimation model that outputs the 17 COCO body keypoints\n(nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles) with a\nconfidence score per keypoint, plus a person bounding box. Pick a small or\nmedium model: the GPU is a GeForce GTX 1650 with 4 GB memory.\nCompile the model to a TensorRT FP16 engine (an INT8 engine as well if possible,\nfor comparison) and give the speed report.\n\nOutput: for every frame, write one JSON line to /home/dread/pipegen_out/keypoints.jsonl\ncontaining the frame timestamp in seconds, and for each detected person their id,\nbounding box and the 17 keypoints as [x, y, confidence] in pixel coordinates.\nAlso show the video with the skeleton drawn on it.\nBlur the person before saving any frame."
+      },
+      {
+        "agent": "I understand you want pose estimates and person IDs from the supplied video, with JSONL and a skeleton display, plus FP16/INT8 TensorRT comparison and a speed report. I\u2019ve recorded fall detection as a task, but need your definition of what counts as a fall before it can be configured.\n\nA few details change how this is built; answer them below, or say proceed to keep the defaults.\n\nNo method kept on person tracking: a tracker's method is recorded only when you name one.",
+        "user": "What pose or time condition should count as a fall? I\u2019ll provide a custom condition",
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "id": "clarify-1",
+            "kind": "clarify",
+            "notes": [],
+            "questions": [
+              {
+                "allow_other": true,
+                "default": null,
+                "filter": "",
+                "help": "",
+                "key": "fall_condition",
+                "label": "What pose or time condition should count as a fall?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Sudden descent followed by lying still",
+                    "value": "Sudden descent followed by lying still"
+                  },
+                  {
+                    "label": "A person lying or horizontal on the ground",
+                    "value": "A person lying or horizontal on the ground"
+                  },
+                  {
+                    "label": "I\u2019ll provide a custom condition",
+                    "value": "I\u2019ll provide a custom condition"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "choice",
+                "unit": "",
+                "value": null
+              }
+            ],
+            "secondary_label": "Use defaults",
+            "step": {
+              "index": 1,
+              "label": "Describe",
+              "of": 9
+            },
+            "submit_label": "Continue",
+            "subtitle": "Only what changes how this pipeline is built. Anything left open keeps its default.",
+            "title": "A few details first"
+          },
+          "values": {
+            "answers": {
+              "fall_condition": "I\u2019ll provide a custom condition"
+            }
+          }
+        }
+      },
+      {
+        "agent": "I\u2019ve recorded that you\u2019ll provide the custom fall condition later, and kept the requested FP16/INT8 comparison and speed report. The fall-detection condition itself remains unspecified.\n\nSome inputs need a fix; see the card.",
+        "user": "Inputs: input1 \u00b7 video file for now (later the live camera) \u00b7 Video file \u00b7 C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4",
+        "req_form": {
+          "form": {
+            "count": {
+              "known": true,
+              "label": "How many inputs will the pipeline read?",
+              "max": 16,
+              "min": 1,
+              "value": 1
+            },
+            "error": "",
+            "errors": {
+              "items.0.url": "No file at /home/dread/videos/fall_test.mp4."
+            },
+            "id": "inputs-2",
+            "items": [
+              {
+                "fields": [],
+                "id": "input1",
+                "kind": "video file",
+                "probe": "",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "/home/dread/videos/fall_test.mp4"
+                }
+              }
+            ],
+            "kind": "inputs",
+            "kinds": [
+              {
+                "description": "A recorded video on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Videos (*.avi *.m4v *.mkv *.mov *.mp4 *.mpeg *.mpg *.ts *.webm)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Video file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "video",
+                "label": "Video file",
+                "value": "video file"
+              },
+              {
+                "description": "A recorded image on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Images (*.jpg *.jpeg *.png *.bmp)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Image file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "image",
+                "label": "Image file",
+                "value": "image file"
+              },
+              {
+                "description": "A folder of images on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Folder",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "folder",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "folder",
+                "label": "Image folder",
+                "value": "image folder"
+              },
+              {
+                "description": "A network stream (rtsp://)",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Stream address",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "rtsp://host:port/path",
+                    "required": true,
+                    "step": null,
+                    "type": "url",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "stream",
+                "label": "RTSP",
+                "value": "rtsp"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "USB camera",
+                "value": "usb camera"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "CSI camera",
+                "value": "csi camera"
+              },
+              {
+                "description": "A depth camera streaming depth, frames, motion",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": [
+                      "frames"
+                    ],
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Streams",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "depth",
+                        "value": "depth"
+                      },
+                      {
+                        "label": "frames",
+                        "value": "frames"
+                      },
+                      {
+                        "label": "motion",
+                        "value": "motion"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "multi",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": "realsense://0",
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "realsense://0",
+                        "value": "realsense://0"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": false,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "sensor",
+                "label": "RealSense",
+                "value": "realsense"
+              },
+              {
+                "description": "Another kind of source; say what it emits",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "description",
+                    "label": "What it is",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Data it emits",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "frames",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Where it is read from",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "a file path, or scheme://host/path",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "other",
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "notes": [
+              "Person tracking follows human pose estimation",
+              "Fall detection follows human pose estimation, person tracking"
+            ],
+            "secondary_label": "",
+            "step": {
+              "index": 2,
+              "label": "Inputs",
+              "of": 9
+            },
+            "submit_label": "Confirm inputs",
+            "subtitle": "Prefilled from your description. Check and confirm.",
+            "tasks": [
+              {
+                "id": "human pose estimation",
+                "label": "Human pose estimation"
+              }
+            ],
+            "title": "Inputs"
+          },
+          "values": {
+            "count": 1,
+            "items": [
+              {
+                "id": "input1",
+                "kind": "video file",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "agent": "Some inputs need a fix; see the card.",
+        "user": "Inputs: input1 \u00b7 video file for now (later the live camera) \u00b7 Video file \u00b7 C:\\Users\\dread\\Videos\\fall_test.mp4",
+        "req_form": {
+          "form": {
+            "count": {
+              "known": true,
+              "label": "How many inputs will the pipeline read?",
+              "max": 16,
+              "min": 1,
+              "value": 1
+            },
+            "error": "Some inputs need a fix.",
+            "errors": {
+              "items.0.url": "No file at C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4."
+            },
+            "id": "inputs-3",
+            "items": [
+              {
+                "fields": [],
+                "id": "input1",
+                "kind": "video file",
+                "probe": "",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "C:\\Users\\dread\\Videos\\WIN_20261015_20_54_39_Pro.mp4"
+                }
+              }
+            ],
+            "kind": "inputs",
+            "kinds": [
+              {
+                "description": "A recorded video on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Videos (*.avi *.m4v *.mkv *.mov *.mp4 *.mpeg *.mpg *.ts *.webm)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Video file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "video",
+                "label": "Video file",
+                "value": "video file"
+              },
+              {
+                "description": "A recorded image on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Images (*.jpg *.jpeg *.png *.bmp)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Image file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "image",
+                "label": "Image file",
+                "value": "image file"
+              },
+              {
+                "description": "A folder of images on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Folder",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "folder",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "folder",
+                "label": "Image folder",
+                "value": "image folder"
+              },
+              {
+                "description": "A network stream (rtsp://)",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Stream address",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "rtsp://host:port/path",
+                    "required": true,
+                    "step": null,
+                    "type": "url",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "stream",
+                "label": "RTSP",
+                "value": "rtsp"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "USB camera",
+                "value": "usb camera"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "CSI camera",
+                "value": "csi camera"
+              },
+              {
+                "description": "A depth camera streaming depth, frames, motion",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": [
+                      "frames"
+                    ],
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Streams",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "depth",
+                        "value": "depth"
+                      },
+                      {
+                        "label": "frames",
+                        "value": "frames"
+                      },
+                      {
+                        "label": "motion",
+                        "value": "motion"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "multi",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": "realsense://0",
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "realsense://0",
+                        "value": "realsense://0"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": false,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "sensor",
+                "label": "RealSense",
+                "value": "realsense"
+              },
+              {
+                "description": "Another kind of source; say what it emits",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "description",
+                    "label": "What it is",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Data it emits",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "frames",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Where it is read from",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "a file path, or scheme://host/path",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "other",
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "notes": [
+              "Person tracking follows human pose estimation",
+              "Fall detection follows human pose estimation, person tracking"
+            ],
+            "secondary_label": "",
+            "step": {
+              "index": 2,
+              "label": "Inputs",
+              "of": 9
+            },
+            "submit_label": "Confirm inputs",
+            "subtitle": "Prefilled from your description. Check and confirm.",
+            "tasks": [
+              {
+                "id": "human pose estimation",
+                "label": "Human pose estimation"
+              }
+            ],
+            "title": "Inputs"
+          },
+          "values": {
+            "count": 1,
+            "items": [
+              {
+                "id": "input1",
+                "kind": "video file",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "C:\\Users\\dread\\Videos\\fall_test.mp4"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "agent": "Some inputs need a fix; see the card.",
+        "user": "Inputs: input1 \u00b7 video file for now (later the live camera) \u00b7 Video file \u00b7 fall_test.mp4",
+        "req_form": {
+          "form": {
+            "count": {
+              "known": true,
+              "label": "How many inputs will the pipeline read?",
+              "max": 16,
+              "min": 1,
+              "value": 1
+            },
+            "error": "Some inputs need a fix.",
+            "errors": {
+              "items.0.url": "No file at C:\\Users\\dread\\Videos\\fall_test.mp4."
+            },
+            "id": "inputs-4",
+            "items": [
+              {
+                "fields": [],
+                "id": "input1",
+                "kind": "video file",
+                "probe": "",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "C:\\Users\\dread\\Videos\\fall_test.mp4"
+                }
+              }
+            ],
+            "kind": "inputs",
+            "kinds": [
+              {
+                "description": "A recorded video on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Videos (*.avi *.m4v *.mkv *.mov *.mp4 *.mpeg *.mpg *.ts *.webm)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Video file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "video",
+                "label": "Video file",
+                "value": "video file"
+              },
+              {
+                "description": "A recorded image on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "Images (*.jpg *.jpeg *.png *.bmp)",
+                    "help": "",
+                    "key": "url",
+                    "label": "Image file",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "file",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "image",
+                "label": "Image file",
+                "value": "image file"
+              },
+              {
+                "description": "A folder of images on this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Folder",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "folder",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "folder",
+                "label": "Image folder",
+                "value": "image folder"
+              },
+              {
+                "description": "A network stream (rtsp://)",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Stream address",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "rtsp://host:port/path",
+                    "required": true,
+                    "step": null,
+                    "type": "url",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "stream",
+                "label": "RTSP",
+                "value": "rtsp"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "USB camera",
+                "value": "usb camera"
+              },
+              {
+                "description": "A camera connected to this machine",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "/dev/video0",
+                    "required": true,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "camera",
+                "label": "CSI camera",
+                "value": "csi camera"
+              },
+              {
+                "description": "A depth camera streaming depth, frames, motion",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": [
+                      "frames"
+                    ],
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Streams",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "depth",
+                        "value": "depth"
+                      },
+                      {
+                        "label": "frames",
+                        "value": "frames"
+                      },
+                      {
+                        "label": "motion",
+                        "value": "motion"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "multi",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": "realsense://0",
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Device",
+                    "max": null,
+                    "min": null,
+                    "options": [
+                      {
+                        "label": "realsense://0",
+                        "value": "realsense://0"
+                      }
+                    ],
+                    "placeholder": "",
+                    "required": false,
+                    "step": null,
+                    "type": "device",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "sensor",
+                "label": "RealSense",
+                "value": "realsense"
+              },
+              {
+                "description": "Another kind of source; say what it emits",
+                "fields": [
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "description",
+                    "label": "What it is",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "data_kind",
+                    "label": "Data it emits",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "frames",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  },
+                  {
+                    "allow_other": false,
+                    "default": null,
+                    "filter": "",
+                    "help": "",
+                    "key": "url",
+                    "label": "Where it is read from",
+                    "max": null,
+                    "min": null,
+                    "options": [],
+                    "placeholder": "a file path, or scheme://host/path",
+                    "required": true,
+                    "step": null,
+                    "type": "text",
+                    "unit": "",
+                    "value": null
+                  }
+                ],
+                "icon": "other",
+                "label": "Other",
+                "value": "other"
+              }
+            ],
+            "notes": [
+              "Person tracking follows human pose estimation",
+              "Fall detection follows human pose estimation, person tracking"
+            ],
+            "secondary_label": "",
+            "step": {
+              "index": 2,
+              "label": "Inputs",
+              "of": 9
+            },
+            "submit_label": "Confirm inputs",
+            "subtitle": "Prefilled from your description. Check and confirm.",
+            "tasks": [
+              {
+                "id": "human pose estimation",
+                "label": "Human pose estimation"
+              }
+            ],
+            "title": "Inputs"
+          },
+          "values": {
+            "count": 1,
+            "items": [
+              {
+                "id": "input1",
+                "kind": "video file",
+                "role": "video file for now (later the live camera)",
+                "tasks": [
+                  "human pose estimation"
+                ],
+                "values": {
+                  "url": "/home/dread/videos/fall_test.mp4"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "agent": "Inputs confirmed: 1.\n\nOutputs taken from your description: out1 \u00b7 metadata_file \u00b7 url /home/dread/pipegen_out/keypoints.jsonl; out2 \u00b7 live_display \u00b7 layout overlay; out3 \u00b7 metadata_file \u00b7 url /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json. Say **review outputs** to change them on a card.\n\nI\u2019ve recorded the requested person blur; a few camera and scene details remain.\n\nA few questions about the scene and camera below: Continue applies what the card shows, Skip adds no step.",
+        "user": "Scene and camera: Does this camera move? Fixed \u00b7 Hide before saving or sending? Whole people \u00b7 How is the light? Normal or not sure \u00b7 How is it mounted? Level or not sure",
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "id": "scene-6",
+            "kind": "scene",
+            "notes": [
+              "From your description: \u201cBlur the person before saving any frame.\u201d (Whole people)",
+              "Continue brings one more card with the questions that did not fit on this one (input1)."
+            ],
+            "questions": [
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "The view holds still between frames, so the camera looks fixed. Fixed: allows speed-ups that need a still camera. Pans or moves: rules out background subtraction, motion gating, frame skipping and the simple tracker. Shakes: rules out frame skipping and the simple tracker. Not sure: treated as not fixed, so no speed-up that needs a still camera. \u00b7 catalogue \u00a74 Camera mount \u00b7 Movement",
+                "key": "motion__input1",
+                "label": "Does this camera move?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Fixed",
+                    "value": "fixed"
+                  },
+                  {
+                    "label": "Pans or moves",
+                    "value": "moves"
+                  },
+                  {
+                    "label": "Shakes",
+                    "value": "shakes"
+                  },
+                  {
+                    "label": "Not sure",
+                    "value": "not_sure"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "choice",
+                "unit": "",
+                "value": "fixed"
+              },
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "Faces: Face blur on the faces a task finds; when no task finds faces, Head blur on the top of each detected person, which does not catch every face, and misses more on a view from above (straight down or through a fisheye). Number plates: Plate blur when a task finds plates. Whole people: People blur on every person box. Screens or documents: no step here can hide them yet; recorded as a need. A fixed area: needs the area drawn; nothing is added now. Every picture output of input1 is blurred, including the local window; boxes in JSON or MQTT results are still sent. \u00b7 catalogue \u00a76 Privacy",
+                "key": "privacy__input1",
+                "label": "Hide before saving or sending?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Faces",
+                    "value": "faces"
+                  },
+                  {
+                    "label": "Number plates",
+                    "value": "plates"
+                  },
+                  {
+                    "label": "Whole people",
+                    "value": "people"
+                  },
+                  {
+                    "label": "Screens or documents",
+                    "value": "screens"
+                  },
+                  {
+                    "label": "A fixed area",
+                    "value": "zone"
+                  },
+                  {
+                    "exclusive": true,
+                    "label": "Nothing",
+                    "value": "nothing"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "multi",
+                "unit": "",
+                "value": [
+                  "people"
+                ]
+              },
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "Brightness looks normal (median 0.51). Dark or night: adds CLAHE before human pose estimation, only on dark frames. Changes day/night: the same, and it stays off in daylight. Bright background: adds a shadow lift (CLAHE) before human pose estimation when the background is blown out. \u00b7 catalogue \u00a73 Scene \u00b7 Darkness, Bright background",
+                "key": "light__input1",
+                "label": "How is the light?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Normal or not sure",
+                    "value": "normal"
+                  },
+                  {
+                    "label": "Dark or night",
+                    "value": "dark"
+                  },
+                  {
+                    "label": "Changes day/night",
+                    "value": "variable"
+                  },
+                  {
+                    "label": "Bright background",
+                    "value": "backlit"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "choice",
+                "unit": "",
+                "value": "normal"
+              },
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "Angled on a wall: keeps the stronger tracker; measuring in metres needs 4 floor points. Straight down: the detector must be trained on top-down views. Upside down: adds Flip 180 before human pose estimation. \u00b7 catalogue \u00a74 Camera mount \u00b7 Position and angle, Top-down view",
+                "key": "mount__input1",
+                "label": "How is it mounted?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Level or not sure",
+                    "value": "level"
+                  },
+                  {
+                    "label": "Angled on a wall",
+                    "value": "wall"
+                  },
+                  {
+                    "label": "Straight down",
+                    "value": "down"
+                  },
+                  {
+                    "label": "Upside down",
+                    "value": "upside_down"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "choice",
+                "unit": "",
+                "value": "level"
+              }
+            ],
+            "secondary_label": "Skip",
+            "step": {
+              "index": 4,
+              "label": "Scene",
+              "of": 9
+            },
+            "submit_label": "Continue",
+            "subtitle": "What the camera sees decides which fixes run before the model and before pictures are kept or sent.",
+            "title": "Scene and camera"
+          },
+          "values": {
+            "answers": {
+              "light__input1": "normal",
+              "motion__input1": "fixed",
+              "mount__input1": "level",
+              "privacy__input1": [
+                "people"
+              ]
+            }
+          }
+        },
+        "taken_forms": [
+          {
+            "form": {
+              "count": {
+                "known": true,
+                "label": "How many outputs?",
+                "max": 8,
+                "min": 1,
+                "value": 3
+              },
+              "error": "",
+              "errors": {},
+              "id": "outputs-5",
+              "items": [
+                {
+                  "fields": [],
+                  "id": "out1",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "metadata_file",
+                  "values": {
+                    "url": "/home/dread/pipegen_out/keypoints.jsonl"
+                  }
+                },
+                {
+                  "fields": [],
+                  "id": "out2",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "live_display",
+                  "values": {}
+                },
+                {
+                  "fields": [],
+                  "id": "out3",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "metadata_file",
+                  "values": {
+                    "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+                  }
+                }
+              ],
+              "kind": "outputs",
+              "kinds": [
+                {
+                  "description": "A window on this machine",
+                  "fields": [],
+                  "icon": "display",
+                  "label": "Live display",
+                  "value": "live_display"
+                },
+                {
+                  "description": "One window, one tile per input",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": "1x1",
+                      "filter": "",
+                      "help": "",
+                      "key": "layout",
+                      "label": "Grid (columns x rows)",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "<cols>x<rows>",
+                      "required": false,
+                      "step": null,
+                      "type": "text",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "grid",
+                  "label": "Tiled display",
+                  "value": "tile_display"
+                },
+                {
+                  "description": "Written to a .mp4 file",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/output.mp4",
+                      "filter": "Files (*.mp4 *.mkv *.avi *.mov *.webm)",
+                      "help": "",
+                      "key": "url",
+                      "label": "File",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "",
+                      "required": false,
+                      "step": null,
+                      "type": "save",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "video",
+                  "label": "Saved video",
+                  "value": "saved_video"
+                },
+                {
+                  "description": "Annotated frames written to a folder",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/frames",
+                      "filter": "",
+                      "help": "",
+                      "key": "url",
+                      "label": "Folder",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "",
+                      "required": false,
+                      "step": null,
+                      "type": "folder",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "images",
+                  "label": "Saved images",
+                  "value": "saved_images"
+                },
+                {
+                  "description": "A network stream (rtsp://)",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": null,
+                      "filter": "",
+                      "help": "",
+                      "key": "url",
+                      "label": "Stream address",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "rtsp://host:port/path",
+                      "required": true,
+                      "step": null,
+                      "type": "url",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "stream",
+                  "label": "RTSP stream",
+                  "value": "rtsp_stream"
+                },
+                {
+                  "description": "Written to a .json file",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json",
+                      "filter": "Files (*.json *.jsonl *.txt *.csv)",
+                      "help": "",
+                      "key": "url",
+                      "label": "File",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "",
+                      "required": false,
+                      "step": null,
+                      "type": "save",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "file",
+                  "label": "Metadata file",
+                  "value": "metadata_file"
+                },
+                {
+                  "description": "Messages published to a broker",
+                  "fields": [
+                    {
+                      "allow_other": false,
+                      "default": null,
+                      "filter": "",
+                      "help": "",
+                      "key": "broker",
+                      "label": "Broker",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "host:port",
+                      "required": true,
+                      "step": null,
+                      "type": "text",
+                      "unit": "",
+                      "value": null
+                    },
+                    {
+                      "allow_other": false,
+                      "default": "",
+                      "filter": "",
+                      "help": "Left empty, one is derived from the pipeline.",
+                      "key": "topic",
+                      "label": "Topic",
+                      "max": null,
+                      "min": null,
+                      "options": [],
+                      "placeholder": "",
+                      "required": false,
+                      "step": null,
+                      "type": "text",
+                      "unit": "",
+                      "value": null
+                    }
+                  ],
+                  "icon": "message",
+                  "label": "MQTT",
+                  "value": "mqtt"
+                }
+              ],
+              "notes": [],
+              "review": "review outputs",
+              "secondary_label": "",
+              "step": {
+                "index": 3,
+                "label": "Outputs",
+                "of": 9
+              },
+              "submit_label": "Confirm outputs",
+              "subtitle": "Taken from your description.",
+              "taken": true,
+              "title": "Outputs"
+            },
+            "values": {
+              "count": 3,
+              "items": [
+                {
+                  "id": "out1",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "metadata_file",
+                  "values": {
+                    "url": "/home/dread/pipegen_out/keypoints.jsonl"
+                  }
+                },
+                {
+                  "id": "out2",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "live_display",
+                  "values": {}
+                },
+                {
+                  "id": "out3",
+                  "inputs": [
+                    "input1"
+                  ],
+                  "kind": "metadata_file",
+                  "values": {
+                    "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "agent": "Added from the scene: People blur before out2 (live display) on input1, on every frame (you answered Whole people; you said \u201cBlur the person before saving any frame.\u201d) \u00b7 catalogue \u00a76 Privacy\n\nMore questions about the scene and camera below: Continue applies what the card shows, Skip keeps the scene as it is.",
+        "user": "Scene and camera: How big are the targets? Not sure",
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "id": "scene-7",
+            "kind": "scene",
+            "notes": [],
+            "page": 2,
+            "questions": [
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "Small or far: no frame skipping; advice for the Model stage. \u00b7 catalogue \u00a74 Camera mount \u00b7 Distance and scale",
+                "key": "size__input1",
+                "label": "How big are the targets?",
+                "max": null,
+                "min": null,
+                "options": [
+                  {
+                    "label": "Medium or large",
+                    "value": "large"
+                  },
+                  {
+                    "label": "Small or far",
+                    "value": "small"
+                  },
+                  {
+                    "label": "Not sure",
+                    "value": "not_sure"
+                  }
+                ],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "choice",
+                "unit": "",
+                "value": "not_sure"
+              }
+            ],
+            "secondary_label": "Skip",
+            "step": {
+              "index": 4,
+              "label": "Scene",
+              "of": 9
+            },
+            "submit_label": "Continue",
+            "subtitle": "What the camera sees decides which fixes run before the model and before pictures are kept or sent.",
+            "title": "Scene and camera"
+          },
+          "values": {
+            "answers": {
+              "size__input1": "not_sure"
+            }
+          }
+        }
+      },
+      {
+        "agent": "Kept from the scene: People blur before out2 (live display) on input1, on every frame \u00b7 catalogue \u00a76 Privacy\n\nDraft v1: **1 input(s)** \u2192 **fall detection, human pose estimation, person tracking** (+1 from the scene) \u2192 **metadata_file, live_display, metadata_file**. Correct it here, or press **Finalize flow**.",
+        "user": "finalize the flow",
+        "flow_draft": {
+          "connections": [
+            {
+              "from": "input1",
+              "to": "task:human pose estimation@input1"
+            },
+            {
+              "from": "task:human pose estimation@input1",
+              "to": "task:person tracking@input1"
+            },
+            {
+              "from": "task:human pose estimation@input1",
+              "to": "task:fall detection@input1"
+            },
+            {
+              "from": "task:person tracking@input1",
+              "to": "task:fall detection@input1"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "logic:3"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "out1"
+            },
+            {
+              "from": "logic:3",
+              "to": "out2"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "out3"
+            }
+          ],
+          "finalized": false,
+          "nodes": [
+            {
+              "id": "input1",
+              "kind": "input",
+              "name": "input1 \u00b7 video file for now (later the live camera)",
+              "short_description": "video file \u00b7 fall_test.mp4 \u00b7 1280x720"
+            },
+            {
+              "id": "task:human pose estimation@input1",
+              "kind": "task",
+              "name": "human pose estimation",
+              "short_description": "targets: person \u00b7 Estimate 2D human pose with the 17 COCO body keypoints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles), a confidence score per keypoint, and a person bounding box. Emit keypoint coordinates as [x, y, confidence] in pixels, with frame timestamps in seconds. Use a small or medium model suitable for the named GPU. Blur the person before saving any frame."
+            },
+            {
+              "id": "task:person tracking@input1",
+              "kind": "task",
+              "name": "person tracking",
+              "short_description": "targets: person \u00b7 Assign person IDs across frames for the per-person output and fall detection."
+            },
+            {
+              "id": "task:fall detection@input1",
+              "kind": "task",
+              "name": "fall detection",
+              "short_description": "targets: person \u00b7 Detect falls using the human pose estimates and tracked people. Fall condition: I\u2019ll provide a custom condition."
+            },
+            {
+              "id": "logic:3",
+              "kind": "logic",
+              "name": "People blur",
+              "placement": "pre_output",
+              "short_description": "Pixelates every person the model finds. Runs before the picture is shown, saved or sent, on every frame."
+            },
+            {
+              "id": "out1",
+              "kind": "output",
+              "name": "out1 \u00b7 metadata_file",
+              "short_description": "metadata_file \u00b7 url /home/dread/pipegen_out/keypoints.jsonl"
+            },
+            {
+              "id": "out2",
+              "kind": "output",
+              "name": "out2 \u00b7 live_display",
+              "short_description": "live_display \u00b7 layout overlay"
+            },
+            {
+              "id": "out3",
+              "kind": "output",
+              "name": "out3 \u00b7 metadata_file",
+              "short_description": "metadata_file \u00b7 url /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+            }
+          ],
+          "version": 1
+        },
+        "actions": [
+          "finalize_flow",
+          "review_outputs"
+        ],
+        "flow_step": {
+          "index": 5,
+          "label": "Flow",
+          "of": 9
+        }
+      },
+      {
+        "agent": "Flow locked. Now the details, one task at a time: 3 of 3 to go.\n\nPose estimation is configured for 17 COCO keypoints with per-keypoint confidence, pixel coordinates, and person boxes, using a small or medium model on the specified GPU. The video, JSONL output, skeleton display, privacy blur, and speed-report requirements are recorded.\n\n**human pose estimation on input1 (video file for now (later the live came\u2026)** done. Next: **person tracking on input1 (video file for now (later the live came\u2026)**.\n\nPerson tracking is settled: maintain per-person IDs across frames for the keypoint output and fall detection.\n\n**person tracking on input1 (video file for now (later the live came\u2026)** done. Next: **fall detection on input1 (video file for now (later the live came\u2026)**.\n\nThe fall detector is designated to use your custom condition, but its actual trigger rule is still unspecified. What exact pose or tracking condition should count as a fall?",
+        "user": "fall detection on input1 (video file for now (later the live came\u2026): What exact pose or tracking condition should count as a fall? Rapid hip drop (faster than 1.2 torso lengths per second), then within 1.5 s the torso stays more than 60 degrees from vertical with hips near the floor, held for 3 seconds.",
+        "task_checklist": {
+          "active": 3,
+          "done": 2,
+          "items": [
+            {
+              "id": 1,
+              "keys": [
+                "human pose estimation@input1"
+              ],
+              "label": "human pose estimation on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Estimate 2D poses for people in the supplied video and emit 17 COCO keypoints, confidence scores, and person boxes; use a small or medium model on the specified"
+            },
+            {
+              "id": 2,
+              "keys": [
+                "person tracking@input1"
+              ],
+              "label": "person tracking on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Track people across frames and assign IDs for per-person output and fall detection."
+            },
+            {
+              "id": 3,
+              "keys": [
+                "fall detection@input1"
+              ],
+              "label": "fall detection on input1 (video file for now (later the live came\u2026)",
+              "status": "active",
+              "summary": ""
+            }
+          ],
+          "of": 3
+        },
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "id": "task-8",
+            "item": 3,
+            "kind": "task",
+            "notes": [],
+            "questions": [
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "This determines which tracked-person events the fall detector reports.",
+                "key": "fall_condition",
+                "label": "What exact pose or tracking condition should count as a fall?",
+                "max": null,
+                "min": null,
+                "options": [],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "text",
+                "unit": "",
+                "value": null
+              }
+            ],
+            "round": 1,
+            "secondary_label": "Keep defaults",
+            "step": {
+              "index": 6,
+              "label": "Task details",
+              "of": 9
+            },
+            "submit_label": "Save details",
+            "subtitle": "Only what still matters for this task. Unanswered optional fields keep their defaults.",
+            "summary": "Fall detection uses a custom condition that still needs its exact trigger rule.",
+            "task": "fall detection on input1 (video file for now (later the live came\u2026)",
+            "title": "fall detection on input1 (video file for now (later the live came\u2026)"
+          },
+          "values": {
+            "answers": {
+              "fall_condition": "Rapid hip drop (faster than 1.2 torso lengths per second), then within 1.5 s the torso stays more than 60 degrees from vertical with hips near the floor, held for 3 seconds."
+            }
+          }
+        }
+      },
+      {
+        "agent": "The fall rule now includes the rapid hip drop, tilted posture, 1.5-second sequence window, and 3-second hold. How should \u201chips near the floor\u201d be determined in this video?",
+        "user": "fall detection on input1 (video file for now (later the live came\u2026): How should \u201chips near the floor\u201d be determined in this video? Hips are near the floor when the hip midpoint is less than 0.5 torso lengths above the floor line, where the floor line is the lowest ankle y-position seen while the person stands upright during the first seconds of the video.",
+        "task_checklist": {
+          "active": 3,
+          "done": 2,
+          "items": [
+            {
+              "id": 1,
+              "keys": [
+                "human pose estimation@input1"
+              ],
+              "label": "human pose estimation on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Estimate 2D poses for people in the supplied video and emit 17 COCO keypoints, confidence scores, and person boxes; use a small or medium model on the specified"
+            },
+            {
+              "id": 2,
+              "keys": [
+                "person tracking@input1"
+              ],
+              "label": "person tracking on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Track people across frames and assign IDs for per-person output and fall detection."
+            },
+            {
+              "id": 3,
+              "keys": [
+                "fall detection@input1"
+              ],
+              "label": "fall detection on input1 (video file for now (later the live came\u2026)",
+              "status": "active",
+              "summary": ""
+            }
+          ],
+          "of": 3
+        },
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "id": "task-9",
+            "item": 3,
+            "kind": "task",
+            "notes": [],
+            "questions": [
+              {
+                "allow_other": false,
+                "default": null,
+                "filter": "",
+                "help": "This criterion affects which tilted postures trigger a fall; the video-coordinate or floor reference is not yet specified.",
+                "key": "hips_near_floor",
+                "label": "How should \u201chips near the floor\u201d be determined in this video?",
+                "max": null,
+                "min": null,
+                "options": [],
+                "placeholder": "",
+                "required": true,
+                "step": null,
+                "type": "text",
+                "unit": "",
+                "value": null
+              }
+            ],
+            "round": 2,
+            "secondary_label": "Keep defaults",
+            "step": {
+              "index": 6,
+              "label": "Task details",
+              "of": 9
+            },
+            "submit_label": "Save details",
+            "subtitle": "Only what still matters for this task. Unanswered optional fields keep their defaults.",
+            "summary": "Fall detection uses a rapid hip drop followed by a tilted, held posture; the hips-near-floor criterion remains unspecified.",
+            "task": "fall detection on input1 (video file for now (later the live came\u2026)",
+            "title": "fall detection on input1 (video file for now (later the live came\u2026)"
+          },
+          "values": {
+            "answers": {
+              "hips_near_floor": "Hips are near the floor when the hip midpoint is less than 0.5 torso lengths above the floor line, where the floor line is the lowest ankle y-position seen while the person stands upright during the first seconds of the video."
+            }
+          }
+        }
+      },
+      {
+        "agent": "Updated the fall rule with the hip-to-floor criterion; I used the first 3 seconds as the default calibration window for finding the floor line from the person\u2019s upright ankle positions.\n\nAll tasks are detailed. This is the final flow with your conditions; continue to sources, or change something.\n\nKept the fall detection step's settings as its task has them: they come from its method and details; say what to change.",
+        "user": "continue to sources",
+        "flow_draft": {
+          "connections": [
+            {
+              "from": "input1",
+              "to": "task:human pose estimation@input1"
+            },
+            {
+              "from": "task:human pose estimation@input1",
+              "to": "task:person tracking@input1"
+            },
+            {
+              "from": "task:human pose estimation@input1",
+              "to": "task:fall detection@input1"
+            },
+            {
+              "from": "task:person tracking@input1",
+              "to": "task:fall detection@input1"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "logic:3"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "out1"
+            },
+            {
+              "from": "logic:3",
+              "to": "out2"
+            },
+            {
+              "from": "task:fall detection@input1",
+              "to": "out3"
+            }
+          ],
+          "finalized": true,
+          "label": "Final flow \u00b7 with your conditions",
+          "nodes": [
+            {
+              "id": "input1",
+              "kind": "input",
+              "name": "input1 \u00b7 video file for now (later the live camera)",
+              "short_description": "video file \u00b7 fall_test.mp4 \u00b7 1280x720"
+            },
+            {
+              "id": "task:human pose estimation@input1",
+              "kind": "task",
+              "name": "human pose estimation",
+              "short_description": "targets: person \u00b7 Estimate 2D human pose with the 17 COCO body keypoints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles), a confidence score per keypoint, and a person bounding box. Emit keypoint coordinates as [x, y, confidence] in pixels, with frame timestamps in seconds. Use a small or medium model suitable for the named GPU. Blur the person before saving any frame."
+            },
+            {
+              "id": "task:person tracking@input1",
+              "kind": "task",
+              "name": "person tracking",
+              "short_description": "targets: person \u00b7 Assign person IDs across frames for the per-person output and fall detection."
+            },
+            {
+              "id": "task:fall detection@input1",
+              "kind": "task",
+              "name": "fall detection",
+              "short_description": "method: Custom pose-based sequential fall rule (assumed; say to change) \u00b7 targets: person \u00b7 Detect falls for tracked people using the pose estimates. A fall requires a hip drop faster than 1.2 torso lengths per second, followed within 1.5 seconds by the torso staying more than 60 degrees from vertical while the hip midpoint is less than 0.5 torso lengths above the floor line, held for 3 seconds. Determine the floor line for each person from the lowest ankle y-position observed while that person stands upright during the first 3 seconds of the video."
+            },
+            {
+              "id": "logic:3",
+              "kind": "logic",
+              "name": "People blur",
+              "placement": "pre_output",
+              "short_description": "Pixelates every person the model finds. Runs before the picture is shown, saved or sent, on every frame."
+            },
+            {
+              "id": "out1",
+              "kind": "output",
+              "name": "out1 \u00b7 metadata_file",
+              "short_description": "metadata_file \u00b7 url /home/dread/pipegen_out/keypoints.jsonl"
+            },
+            {
+              "id": "out2",
+              "kind": "output",
+              "name": "out2 \u00b7 live_display",
+              "short_description": "live_display \u00b7 layout overlay"
+            },
+            {
+              "id": "out3",
+              "kind": "output",
+              "name": "out3 \u00b7 metadata_file",
+              "short_description": "metadata_file \u00b7 url /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+            }
+          ],
+          "version": 2
+        },
+        "actions": [
+          "confirm_flow"
+        ],
+        "task_checklist": {
+          "active": null,
+          "done": 3,
+          "items": [
+            {
+              "id": 1,
+              "keys": [
+                "human pose estimation@input1"
+              ],
+              "label": "human pose estimation on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Estimate 2D poses for people in the supplied video and emit 17 COCO keypoints, confidence scores, and person boxes; use a small or medium model on the specified"
+            },
+            {
+              "id": 2,
+              "keys": [
+                "person tracking@input1"
+              ],
+              "label": "person tracking on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Track people across frames and assign IDs for per-person output and fall detection."
+            },
+            {
+              "id": 3,
+              "keys": [
+                "fall detection@input1"
+              ],
+              "label": "fall detection on input1 (video file for now (later the live came\u2026)",
+              "status": "done",
+              "summary": "Fall detection now uses the specified rapid hip drop, tilted held posture, and hip-midpoint distance below 0.5 torso lengths from a floor line calibrated from u"
+            }
+          ],
+          "of": 3
+        },
+        "flow_step": {
+          "index": 5,
+          "label": "Flow",
+          "of": 9
+        }
+      },
+      {
+        "agent": "Code for human pose estimation on input1 (video file for now (later the live came\u2026): choose a local repository folder or model file, or the catalog, for each task below, or paste a path here.",
+        "user": "human pose estimation on input1 (video file for now (later the live came\u2026) \u2192 catalog \u00b7 precision FP16",
+        "req_form": {
+          "form": {
+            "error": "",
+            "errors": {},
+            "groups": [
+              {
+                "choice": "catalog",
+                "field": {
+                  "accept": [
+                    "folder",
+                    "file"
+                  ],
+                  "allow_other": false,
+                  "default": null,
+                  "filter": "Models (*.engine *.onnx *.plan *.pt *.pth *.tflite *.weights)",
+                  "help": "A folder is searched for its models; a model file is used exactly as given.",
+                  "key": "path",
+                  "label": "Repository folder or model file",
+                  "max": null,
+                  "min": null,
+                  "multiple": true,
+                  "options": [],
+                  "placeholder": "/path/to/repository or /path/to/model.onnx",
+                  "required": true,
+                  "step": null,
+                  "type": "path",
+                  "unit": "",
+                  "value": ""
+                },
+                "id": "g1",
+                "keys": [
+                  "human pose estimation@input1"
+                ],
+                "label": "human pose estimation on input1 (video file for now (later the live came\u2026)",
+                "path": ""
+              }
+            ],
+            "id": "sources-10",
+            "kind": "sources",
+            "model_free": [
+              {
+                "label": "person tracking on input1 (video file for now (later the live came\u2026)",
+                "reason": "computed from human pose estimation on input1 (video file for now (later the live came\u2026)"
+              },
+              {
+                "label": "fall detection on input1 (video file for now (later the live came\u2026)",
+                "reason": "computed from human pose estimation on input1 (video file for now (later the live came\u2026) \u00b7 person tracking on input1 (video file for now (later the live came\u2026)"
+              }
+            ],
+            "notes": [],
+            "precision": {
+              "allow_other": false,
+              "default": "auto",
+              "filter": "",
+              "help": "Used when the model is compiled for this device.",
+              "key": "precision",
+              "label": "Model precision",
+              "max": null,
+              "min": null,
+              "options": [
+                {
+                  "label": "Auto (the compile stage decides)",
+                  "value": "auto"
+                },
+                {
+                  "label": "FP32, full precision reference build",
+                  "value": "fp32"
+                },
+                {
+                  "label": "FP16, half precision; speed and accuracy are measured after the build",
+                  "value": "fp16"
+                },
+                {
+                  "label": "INT8, calibrated on sample frames; speed and accuracy are measured after the build",
+                  "value": "int8"
+                }
+              ],
+              "placeholder": "",
+              "required": false,
+              "step": null,
+              "type": "choice",
+              "unit": "",
+              "value": "fp16"
+            },
+            "secondary_label": "",
+            "step": {
+              "index": 7,
+              "label": "Sources",
+              "of": 9
+            },
+            "submit_label": "Continue",
+            "subtitle": "A local repository folder or model file, or ranked suggestions from the catalog, for each task.",
+            "title": "Code sources"
+          },
+          "values": {
+            "groups": [
+              {
+                "choice": "catalog",
+                "id": "g1",
+                "path": ""
+              }
+            ],
+            "path": "",
+            "precision": "fp16",
+            "share": false
+          }
+        }
+      },
+      {
+        "agent": "Catalog matches for human pose estimation on input1 (video file for now (later the live came\u2026). Suggested: **A** covers all 1 task(s). Tick the ones to use, or paste a local path.",
+        "user": "A",
+        "benchmark_options": {
+          "options": [
+            {
+              "id": "A",
+              "label": "Pose_Estimation",
+              "description": "Directly estimates multi-person keypoints and supports video input with skeleton visualization.",
+              "similarity": 94,
+              "covers": [
+                "human pose estimation@input1"
+              ],
+              "suggested": true
+            },
+            {
+              "id": "B",
+              "label": "WorkerFallDetection",
+              "description": "Uses a YOLO11 pose model with 17 COCO keypoints and person boxes on video frames.",
+              "similarity": 86,
+              "covers": [
+                "human pose estimation@input1"
+              ],
+              "suggested": false
+            },
+            {
+              "id": "C",
+              "label": "yolov8_pose_parallel",
+              "description": "Runs pose estimation on video and overlays 17-keypoint COCO skeletons, alongside object detection.",
+              "similarity": 82,
+              "covers": [
+                "human pose estimation@input1"
+              ],
+              "suggested": false
+            },
+            {
+              "id": "D",
+              "label": "multi-model-perception-dashboard",
+              "description": "Includes parallel 2D pose estimation on video, though it is part of a broader multi-model dashboard.",
+              "similarity": 72,
+              "covers": [
+                "human pose estimation@input1"
+              ],
+              "suggested": false
+            }
+          ],
+          "selected": "A",
+          "disabled": true,
+          "multi": true,
+          "selected_ids": [
+            "A"
+          ],
+          "suggestion": {
+            "ids": [
+              "A"
+            ],
+            "of": 1,
+            "tasks_covered": 1
+          }
+        }
+      },
+      {
+        "agent": "Requirement analysis stopped.",
+        "user": "B) WorkerFallDetection instead please"
+      },
+      {
+        "agent": "- **src1** \u00b7 WorkerFallDetection \u2192 human pose estimation on input1 (video file for now (later the live came\u2026) \u00b7 `application.py` \u00b7 `yolo11s-pose.onnx` (scanned)\n\nAll 16 requirement checks pass.\n\nPress **Generate PIR** to build the pipeline graph. You can still change anything here first.",
+        "checks": {
+          "failed": 0,
+          "groups": [
+            {
+              "failed": 0,
+              "name": "Inputs",
+              "passed": 1,
+              "warned": 0
+            },
+            {
+              "failed": 0,
+              "name": "Tasks",
+              "passed": 6,
+              "warned": 0
+            },
+            {
+              "failed": 0,
+              "name": "Sources",
+              "passed": 4,
+              "warned": 0
+            },
+            {
+              "failed": 0,
+              "name": "Outputs",
+              "passed": 3,
+              "warned": 0
+            },
+            {
+              "failed": 0,
+              "name": "Handoff",
+              "passed": 2,
+              "warned": 0
+            }
+          ],
+          "passed": true,
+          "results": [
+            {
+              "fix": null,
+              "group": "Inputs",
+              "id": "input.input1",
+              "message": "input1: /home/dread/videos/fall_test.mp4 (1280x720 \u00b7 15.08)",
+              "name": "input1 file",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Sources",
+              "id": "classes.src1.human pose estimation@input1",
+              "message": "src1 supports person \u2192 Decoded person bounding boxes and 17 COCO keypoints as pixel-space coordinates with per-keypoint visibility/confidence; the model output is [1, 8400, 56]. for human pose estimation@input1.",
+              "name": "human pose estimation@input1 capabilities",
+              "status": "pass"
+            },
+            {
+              "fix": "sources",
+              "group": "Tasks",
+              "id": "tasks.covered",
+              "message": "All tasks are covered.",
+              "name": "every task has a source",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Tasks",
+              "id": "task.1.input",
+              "message": "human pose estimation runs on input1",
+              "name": "human pose estimation input",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Tasks",
+              "id": "task.2.input",
+              "message": "person tracking runs on input1",
+              "name": "person tracking input",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Tasks",
+              "id": "task.3.input",
+              "message": "fall detection runs on input1",
+              "name": "fall detection input",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Sources",
+              "id": "source.src1.root",
+              "message": "src1: /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection",
+              "name": "src1 folder",
+              "status": "pass"
+            },
+            {
+              "fix": "reanalyse",
+              "group": "Sources",
+              "id": "source.src1.entry",
+              "message": "src1: `python application.py /home/dread/videos/fall_test.mp4` \u2192 application.py",
+              "name": "src1 run command",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Sources",
+              "id": "source.src1.model.yolo11s-pose.onnx",
+              "message": "src1: yolo11s-pose.onnx reads fine.",
+              "name": "src1 model yolo11s-pose.onnx",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Outputs",
+              "id": "output.out1.destination",
+              "message": "out1: metadata_file \u2192 /home/dread/pipegen_out/keypoints.jsonl",
+              "name": "out1 destination",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Outputs",
+              "id": "output.out2.destination",
+              "message": "out2: live_display on this machine",
+              "name": "out2 destination",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Outputs",
+              "id": "output.out3.destination",
+              "message": "out3: metadata_file \u2192 /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json",
+              "name": "out3 destination",
+              "status": "pass"
+            },
+            {
+              "fix": "ask",
+              "group": "Tasks",
+              "id": "algorithm.3",
+              "message": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+              "name": "custom step 3 reference",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Tasks",
+              "id": "scene.step.3",
+              "message": "People blur: pre_output, for human pose estimation@input1, person tracking@input1, fall detection@input1.",
+              "name": "People blur placement",
+              "status": "pass"
+            },
+            {
+              "fix": "ask",
+              "group": "Handoff",
+              "id": "contract",
+              "message": "1 task(s), 1 source(s), 1 model(s).",
+              "name": "handoff contract",
+              "status": "pass"
+            },
+            {
+              "fix": null,
+              "group": "Handoff",
+              "id": "pir.readiness",
+              "message": "The PIR stage can start from the captured evidence.",
+              "name": "PIR readiness",
+              "status": "pass"
+            }
+          ],
+          "version": 1,
+          "warned": 0
+        },
+        "source_architectures": [
+          {
+            "architecture": {
+              "connections": [
+                {
+                  "from": "n1",
+                  "to": "n2"
+                },
+                {
+                  "from": "n2",
+                  "to": "n3"
+                },
+                {
+                  "from": "n3",
+                  "to": "n4"
+                },
+                {
+                  "from": "n4",
+                  "to": "n5"
+                }
+              ],
+              "nodes": [
+                {
+                  "id": "n1",
+                  "name": "Image input",
+                  "short_description": "The application is documented as a single-image sanity test."
+                },
+                {
+                  "id": "n2",
+                  "name": "Letterbox preprocessing",
+                  "short_description": "Resizes to 640\u00d7640 with aspect ratio preserved, symmetric grey padding, RGB ordering, and 1/255 scaling."
+                },
+                {
+                  "id": "n3",
+                  "name": "YOLO11s-Pose ONNX",
+                  "short_description": "Produces candidate person boxes and 17 COCO keypoints per candidate."
+                },
+                {
+                  "id": "n4",
+                  "name": "Pose decoding and NMS",
+                  "short_description": "Interprets box, confidence, keypoint-coordinate, and visibility columns and applies single-class NMS."
+                },
+                {
+                  "id": "n5",
+                  "name": "Fall heuristic and visualization",
+                  "short_description": "The script estimates fall-like posture from box shape and shoulder-to-hip orientation, then draws results for the still-image sanity check."
+                }
+              ]
+            },
+            "command": "python application.py /home/dread/videos/fall_test.mp4",
+            "covers": [
+              "human pose estimation@input1"
+            ],
+            "id": "src1",
+            "models": [
+              "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+            ],
+            "name": "WorkerFallDetection",
+            "source": "benchmark",
+            "summary": "This repository contains a single-image sanity-test application for a YOLO11s-Pose ONNX model. It preprocesses an image with RGB letterboxing to 640\u00d7640, then runs the model and decodes person boxes and 17 COCO keypoints with NMS. The script can draw poses and uses a simple orientation heuristic to estimate fall-like posture from one still image; that heuristic is not a trained fall classifier. The provided task input is a video file, but the application is documented as single-image-only and does not establish video-frame or timestamp handling."
+          }
+        ]
+      },
+      {
+        "agent": "Pipeline IR generated successfully. Review the graph above and either **approve** to continue or describe what to change."
+      },
+      {
+        "agent": "Pipeline IR approved. Proceeding to model compilation.",
+        "user": "continue and build the TensorRT FP16 engine"
+      },
+      {
+        "agent": "Keeping this engine as the one that ships. Moving on to the pipeline compilation."
+      },
+      {
+        "agent": "Pipeline IR updated \u2014 inference node 3 now uses the TensorRT engine: `/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/model_stage/yolo11s-pose.fp16.plan`"
+      }
+    ],
+    "log_history": [
+      "Understanding your requirement",
+      "Defaulted: out3 written to /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json",
+      "Considered: Recorded only the supplied video file; the later live camera is not yet a described input.",
+      "Considered: Person IDs and fall detection require identities across frames, so tracking is recorded as a derived task.",
+      "Considered: Fall detection is requested, but its defining pose/time condition cannot be safely inferred; left its method unset pending your answer.",
+      "Considered: Recorded FP16 as the primary TensorRT precision and INT8 as the requested comparison; the named GPU is recorded as the device.",
+      "Considered: Used a metadata-file output for the requested speed report; its destination was not specified and is left for the host to fill.",
+      "Considered: No saved frame or video output was explicitly requested; retained the blur-before-saving constraint in the pose task details.",
+      "Understanding \u00b7 a few details",
+      "Understanding your requirement",
+      "Considered: The user has not supplied the actual fall condition; recorded that they will provide it later rather than inventing one.",
+      "Considered: The fall-condition question was already asked, so it is not repeated.",
+      "Considered: The user requested a speed report; recorded this with the stated model-compilation requirements.",
+      "Inputs \u00b7 1 field(s) to fix",
+      "Inputs \u00b7 1 field(s) to fix",
+      "Inputs \u00b7 1 field(s) to fix",
+      "Looking at the video from input1",
+      "Considered: The user explicitly requested blurring the person before saving frames, so that privacy preference is established.",
+      "Considered: Footage evidence suggests a fixed camera, but it is not a user-stated fact and should be confirmed.",
+      "Considered: Lighting, camera mount, and target size can affect pose-estimation setup.",
+      "Scene and camera \u00b7 4 question(s)",
+      "Read the supplied implementation privacy_blur_bafb9b7122.py",
+      "Scene and camera \u00b7 1 question(s)",
+      "Flow draft ready for your review",
+      "Flow draft \u00b7 waiting for your corrections or Finalize",
+      "Flow finalised; collecting task details",
+      "Detailing human pose estimation on input1 (video file for now (later the live came\u2026)",
+      "Detailing person tracking on input1 (video file for now (later the live came\u2026)",
+      "Detailing fall detection on input1 (video file for now (later the live came\u2026)",
+      "Task details \u00b7 fall detection on input1 (video file for now (later the live came\u2026)",
+      "Detailing fall detection on input1 (video file for now (later the live came\u2026)",
+      "Task details \u00b7 fall detection on input1 (video file for now (later the live came\u2026)",
+      "Detailing fall detection on input1 (video file for now (later the live came\u2026)",
+      "Final flow \u00b7 waiting for Continue",
+      "Collecting code sources",
+      "Sources \u00b7 1 task(s) still need code",
+      "Ranking catalog repositories for your tasks",
+      "Sources \u00b7 choose catalog repositories",
+      "Cloning catalog repository Pose_Estimation",
+      "Downloading model: download.sh",
+      "Cloning catalog repository WorkerFallDetection",
+      "Downloading model: download.sh",
+      "Found 1 ONNX model(s)",
+      "Scanning src1: WorkerFallDetection",
+      "Reading WorkerFallDetection to configure it for human pose estimation on input1 (video file for now (later the live came\u2026)",
+      "Checking the requirement against the sources",
+      "Requirements complete",
+      "16 requirement checks passed"
+    ],
+    "completed_at": 1792079703.2082455,
+    "duration_secs": 1028.8,
+    "total_secs": 1028.8
+  },
+  "PIR": {
+    "enabled": true,
+    "completed": true,
+    "started_at": 1792079716.097505,
+    "status": "completed",
+    "buttons": {
+      "GeneratePIR": {
+        "enabled": false,
+        "completed": true
+      },
+      "StopPIR": {
+        "enabled": false,
+        "completed": false
+      }
+    },
+    "chat_history": [
+      {
+        "type": "buttons",
+        "buttons": {
+          "GeneratePIR": {
+            "enabled": false,
+            "completed": true
+          },
+          "StopPIR": {
+            "enabled": false,
+            "completed": false
+          }
+        }
+      }
+    ],
+    "task_history": [
+      {
+        "task": "Starting PIR",
+        "completed": true
+      },
+      {
+        "task": "Reading missing source and model details",
+        "completed": true
+      },
+      {
+        "task": "Generating the pipeline graph",
+        "completed": true
+      }
+    ],
+    "PipelineIR": {
+      "connections": [
+        [
+          "p01o_frame",
+          "p02i_frame"
+        ],
+        [
+          "p02o_blob",
+          "p03i_blob"
+        ],
+        [
+          "p03o_raw",
+          "p04i_raw"
+        ],
+        [
+          "p02o_geometry",
+          "p04i_geometry"
+        ],
+        [
+          "p04o_poses",
+          "p05i_poses"
+        ],
+        [
+          "p01o_clock",
+          "p05i_clock"
+        ],
+        [
+          "p05o_tracked",
+          "p06i_tracked"
+        ],
+        [
+          "p01o_clock",
+          "p06i_clock"
+        ],
+        [
+          "p01o_frame",
+          "p07i_frame"
+        ],
+        [
+          "p06o_result",
+          "p07i_result"
+        ],
+        [
+          "p06o_result",
+          "p08i_result"
+        ],
+        [
+          "p07o_frame",
+          "p09i_frame"
+        ],
+        [
+          "p06o_result",
+          "p09i_result"
+        ],
+        [
+          "p06o_result",
+          "p10i_result"
+        ]
+      ],
+      "nodes": [
+        {
+          "description": "Read every video frame and emit synchronized source metadata.",
+          "id": 1,
+          "name": "file",
+          "ports": [
+            {
+              "direction": "output",
+              "format": {
+                "color": "BGR",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p01o_frame",
+              "tensor": {
+                "dtype": "uint8",
+                "shape": [
+                  720,
+                  1280,
+                  3
+                ]
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p01o_clock",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import cv2\ncap = cv2.VideoCapture('/home/dread/videos/fall_test.mp4')\nif not cap.isOpened(): raise RuntimeError('Cannot open input video')\nfps = cap.get(cv2.CAP_PROP_FPS)\nif fps <= 0: fps = 15.08\nframe_index = 0\nwhile True:\n    ok, frame = cap.read()\n    if not ok: break\n    height, width = frame.shape[:2]\n    timestamp_s = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0\n    if not (timestamp_s >= 0 and timestamp_s < float('inf')) or (frame_index > 0 and timestamp_s == 0):\n        timestamp_s = frame_index / fps\n    emit('p01o_frame', frame)\n    emit('p01o_clock', {'frame_index': frame_index, 'timestamp_s': float(timestamp_s), 'width': width, 'height': height})\n    frame_index += 1\ncap.release()",
+          "resolution": [
+            1280,
+            720
+          ],
+          "type": "input",
+          "url": "file:///home/dread/videos/fall_test.mp4"
+        },
+        {
+          "color_order": "RGB",
+          "description": "Symmetrically letterbox video frames and create normalized RGB tensors.",
+          "id": 2,
+          "mean": null,
+          "normalization": 0.003921569790691137,
+          "offset": null,
+          "pad_value": 114,
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": "BGR",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p02i_frame",
+              "tensor": {
+                "dtype": "uint8",
+                "shape": [
+                  720,
+                  1280,
+                  3
+                ]
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": "RGB",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p02o_blob",
+              "tensor": {
+                "dtype": "fp32",
+                "shape": [
+                  1,
+                  3,
+                  640,
+                  640
+                ]
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p02o_geometry",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import cv2\nimport numpy as np\ndef process(frame):\n    orig_h, orig_w = frame.shape[:2]\n    gain = min(640 / orig_w, 640 / orig_h)\n    new_w, new_h = round(orig_w * gain), round(orig_h * gain)\n    pad_w, pad_h = (640 - new_w) / 2, (640 - new_h) / 2\n    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)\n    top, bottom = round(pad_h - 0.1), round(pad_h + 0.1)\n    left, right = round(pad_w - 0.1), round(pad_w + 0.1)\n    letterboxed = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))\n    rgb = cv2.cvtColor(letterboxed, cv2.COLOR_BGR2RGB)\n    blob = np.ascontiguousarray((rgb.astype(np.float32) * 0.0039215697906911373).transpose(2, 0, 1)[None, ...])\n    return blob, {'gain': gain, 'pad_w': pad_w, 'pad_h': pad_h, 'orig_w': orig_w, 'orig_h': orig_h}",
+          "resize": [
+            640,
+            640
+          ],
+          "resize_mode": "letterbox",
+          "scale": 0.003921569790691137,
+          "std": null,
+          "type": "preprocess"
+        },
+        {
+          "batchSize": 1,
+          "description": "Run single-frame YOLO11s pose inference using TensorRT FP16.",
+          "id": 3,
+          "layout": "NCHW",
+          "model": {
+            "inputs": [
+              {
+                "dtype": "fp32",
+                "name": "input",
+                "shape": [
+                  1,
+                  3,
+                  640,
+                  640
+                ]
+              }
+            ],
+            "name": "YOLO11s-Pose",
+            "outputs": [
+              {
+                "dtype": "fp32",
+                "name": "output",
+                "shape": [
+                  1,
+                  8400,
+                  56
+                ]
+              }
+            ],
+            "parameter_count": 9902940,
+            "type": "engine",
+            "url": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/model_stage/yolo11s-pose.fp16.plan",
+            "source_onnx": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx"
+          },
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": "RGB",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p03i_blob",
+              "tensor": {
+                "dtype": "fp32",
+                "shape": [
+                  1,
+                  3,
+                  640,
+                  640
+                ]
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p03o_raw",
+              "tensor": {
+                "dtype": "fp32",
+                "shape": [
+                  1,
+                  8400,
+                  56
+                ]
+              }
+            }
+          ],
+          "pseudo_code": "import time\nimport onnxruntime as ort\nmodel_path = '/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/yolo11s-pose.onnx'\nproviders = [('TensorrtExecutionProvider', {'trt_fp16_enable': True, 'trt_engine_cache_enable': True}), 'CUDAExecutionProvider']\nsession = ort.InferenceSession(model_path, providers=providers)\nlatencies_s = []\ndef process(blob):\n    start = time.perf_counter()\n    raw = session.run(['output'], {'input': blob})[0]\n    latencies_s.append(time.perf_counter() - start)\n    return raw\ndef speed_report():\n    if not latencies_s: return {'frames': 0}\n    ordered = sorted(latencies_s)\n    return {'precision': 'fp16', 'frames': len(ordered), 'mean_inference_ms': 1000 * sum(ordered) / len(ordered), 'p50_inference_ms': 1000 * ordered[len(ordered) // 2], 'p95_inference_ms': 1000 * ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))], 'inference_fps': len(ordered) / sum(ordered)}\n# At end of stream, report measured FP16 results. Build and benchmark a separate INT8 engine only if suitable calibration data and supported TensorRT INT8 compilation are available; do not label an uncalibrated run INT8.",
+          "type": "inference"
+        },
+        {
+          "description": "Decode person boxes and COCO keypoints with single-class NMS.",
+          "id": 4,
+          "label_file_path": "file:///home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/src1/WorkerFallDetection/Models/labels.txt",
+          "num_classes": 1,
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p04i_raw",
+              "tensor": {
+                "dtype": "fp32",
+                "shape": [
+                  1,
+                  8400,
+                  56
+                ]
+              }
+            },
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p04i_geometry",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p04o_poses",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import cv2\nimport numpy as np\nKEYPOINT_NAMES = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder','left_elbow','right_elbow','left_wrist','right_wrist','left_hip','right_hip','left_knee','right_knee','left_ankle','right_ankle']\ndef process(output, geometry):\n    # Model already decodes xyxy boxes, keypoint pixel locations and sigmoid confidences; no anchor or PAF decoding is needed.\n    preds = output[0]  # 8400 rows: x1,y1,x2,y2,conf,(kx,ky,kv)*17; 640-space pixels\n    preds = preds[preds[:, 4] >= 0.25]\n    if len(preds) == 0: return []\n    boxes_xyxy = preds[:, :4]\n    scores = preds[:, 4]\n    keypoints = preds[:, 5:].reshape(-1, 17, 3)\n    boxes_xywh = np.stack([boxes_xyxy[:, 0], boxes_xyxy[:, 1], boxes_xyxy[:, 2] - boxes_xyxy[:, 0], boxes_xyxy[:, 3] - boxes_xyxy[:, 1]], axis=1)\n    keep = cv2.dnn.NMSBoxes(boxes_xywh.tolist(), scores.tolist(), 0.25, 0.45)\n    keep = np.array(keep).flatten() if len(keep) else []\n    detections = []\n    gain, pad_w, pad_h = geometry['gain'], geometry['pad_w'], geometry['pad_h']\n    for i in keep:\n        x1, y1, x2, y2 = boxes_xyxy[i]\n        x1, y1 = (x1 - pad_w) / gain, (y1 - pad_h) / gain\n        x2, y2 = (x2 - pad_w) / gain, (y2 - pad_h) / gain\n        kpts = []\n        for kx, ky, kv in keypoints[i]:\n            kpts.append([float((kx - pad_w) / gain), float((ky - pad_h) / gain), float(kv)])\n        detections.append({'box': [float(max(0, x1)), float(max(0, y1)), float(min(geometry['orig_w'], x2)), float(min(geometry['orig_h'], y2))], 'score': float(scores[i]), 'label': 'person', 'source': 'human pose estimation@input1', 'keypoints': kpts})\n    return detections",
+          "task": "detection",
+          "threshold": 0.25,
+          "top_items": null,
+          "type": "postprocess"
+        },
+        {
+          "category": "tracking",
+          "description": "Associate current person poses with persistent per-video identities.",
+          "external_assets": [],
+          "id": 5,
+          "inputs": [
+            "person detections with pixel-space boxes and keypoints",
+            "frame metadata"
+          ],
+          "name": "person tracking",
+          "outputs": [
+            "current-frame persons with persistent IDs"
+          ],
+          "parameters": {
+            "iou_match_threshold": 0.3,
+            "max_missed_frames": 30
+          },
+          "placement": {
+            "attach_point": null,
+            "position": "post_nn"
+          },
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p05i_poses",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p05i_clock",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p05o_tracked",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "tracks = {}\nnext_id = 1\ndef iou(a, b):\n    x1, y1 = max(a[0], b[0]), max(a[1], b[1])\n    x2, y2 = min(a[2], b[2]), min(a[3], b[3])\n    intersection = max(0.0, x2-x1) * max(0.0, y2-y1)\n    area_a = max(0.0, a[2]-a[0]) * max(0.0, a[3]-a[1])\n    area_b = max(0.0, b[2]-b[0]) * max(0.0, b[3]-b[1])\n    union = area_a + area_b - intersection\n    return intersection / union if union > 0 else 0.0\ndef process(detections, clock):\n    global next_id\n    candidates = sorted(((iou(track['box'], det['box']), tid, j) for tid, track in tracks.items() for j, det in enumerate(detections)), reverse=True)\n    used_ids, used_indices, assignment = set(), set(), {}\n    for overlap, tid, j in candidates:\n        if overlap < 0.3: break\n        if tid not in used_ids and j not in used_indices:\n            assignment[j] = tid\n            used_ids.add(tid)\n            used_indices.add(j)\n    for tid in list(tracks):\n        if tid not in used_ids:\n            tracks[tid]['missed'] += 1\n            if tracks[tid]['missed'] > 30: del tracks[tid]\n    current = []\n    for j, det in enumerate(detections):\n        if j in assignment: tid = assignment[j]\n        else:\n            tid = next_id\n            next_id += 1\n        tracks[tid] = {'box': det['box'], 'missed': 0}\n        current.append({**det, 'id': tid})\n    return current  # Never emit retained-but-missed tracks as current people.",
+          "reference_path": null,
+          "runs_every_frame": true,
+          "state_key": "global",
+          "triggers": [],
+          "type": "custom"
+        },
+        {
+          "category": "other",
+          "description": "Calibrate individual floors and evaluate timed sequential fall conditions.",
+          "external_assets": [],
+          "id": 6,
+          "inputs": [
+            "current-frame tracked person poses",
+            "frame timestamp and index"
+          ],
+          "name": "fall detection",
+          "outputs": [
+            "per-frame timestamped persons, fall states and events"
+          ],
+          "parameters": {
+            "floor_line_calibration_window_seconds": 3,
+            "hip_drop_speed_threshold_torso_lengths_p": 1.2,
+            "hip_midpoint_max_height_above_floor_tors": 0.5,
+            "hold_seconds": 3,
+            "keypoint_visibility_threshold": 0.5,
+            "method": "Custom pose-based sequential fall rule",
+            "rules": [
+              {
+                "name": "Rapid hip drop",
+                "speed_faster_than_torso_lengths_per_seco": 1.2
+              },
+              {
+                "floor_line": "lowest ankle y-position while the person stands upright during the first 3 seconds",
+                "hip_midpoint_less_than_torso_lengths_abo": 0.5,
+                "name": "Tilted posture and hips near floor",
+                "torso_angle_from_vertical_degrees": ">60",
+                "within_seconds": 1.5
+              },
+              {
+                "name": "Hold fall posture",
+                "seconds": 3
+              }
+            ],
+            "sequence_window_seconds": 1.5,
+            "torso_angle_from_vertical_degrees": 60,
+            "upright_calibration_max_angle_degrees": 30
+          },
+          "placement": {
+            "attach_point": null,
+            "position": "post_tracker"
+          },
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p06i_tracked",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p06i_clock",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p06o_result",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import math\nstates = {}\nvideo_start_s = None\ndef midpoint(a, b): return ((a[0]+b[0])/2.0, (a[1]+b[1])/2.0)\ndef process(persons, clock):\n    global video_start_s\n    t = clock['timestamp_s']\n    if video_start_s is None: video_start_s = t\n    present_ids = {p['id'] for p in persons}\n    # A missed observation interrupts a continuous posture hold; retained tracker IDs are not observations.\n    for tid, state in states.items():\n        if tid not in present_ids:\n            state['hold_start'] = None\n            state['prev_hip'] = None\n            state['prev_t'] = None\n            state['drop_t'] = None\n            state['fallen'] = False\n    result = []\n    for person in persons:\n        tid = person['id']\n        state = states.setdefault(tid, {'floor_y': None, 'prev_hip': None, 'prev_t': None, 'drop_t': None, 'hold_start': None, 'fallen': False})\n        k = person['keypoints']\n        pose_valid = all(k[j][2] >= 0.5 for j in (5, 6, 11, 12))\n        hip = None\n        torso = None\n        angle = None\n        if pose_valid:\n            shoulder = midpoint(k[5], k[6])\n            hip = midpoint(k[11], k[12])\n            dx, dy = hip[0]-shoulder[0], hip[1]-shoulder[1]\n            torso = math.hypot(dx, dy)\n            if torso > 0: angle = math.degrees(math.atan2(abs(dx), abs(dy)+1e-6))\n        if t - video_start_s <= 3 and angle is not None and angle <= 30:\n            visible_ankles = [k[j][1] for j in (15, 16) if k[j][2] >= 0.5]\n            if visible_ankles:\n                lowest_y = max(visible_ankles)  # Image y grows downwards.\n                state['floor_y'] = lowest_y if state['floor_y'] is None else max(state['floor_y'], lowest_y)\n        rapid_drop = False\n        if hip is not None and torso is not None and torso > 0 and state['prev_hip'] is not None and state['prev_t'] is not None:\n            dt = t - state['prev_t']\n            if dt > 0:\n                speed_torso_lengths_per_s = (hip[1] - state['prev_hip'][1]) / (torso * dt)\n                rapid_drop = speed_torso_lengths_per_s > 1.2\n        if rapid_drop: state['drop_t'] = t\n        if state['drop_t'] is not None and t - state['drop_t'] > 1.5:\n            state['drop_t'] = None\n            state['hold_start'] = None\n        near_floor = (hip is not None and torso is not None and torso > 0 and state['floor_y'] is not None and (state['floor_y'] - hip[1]) / torso < 0.5)\n        posture = angle is not None and angle > 60 and near_floor\n        if state['drop_t'] is not None and posture and t - state['drop_t'] <= 1.5 and state['hold_start'] is None:\n            state['hold_start'] = t\n        elif state['hold_start'] is not None and not posture:\n            state['hold_start'] = None\n            state['drop_t'] = None\n            state['fallen'] = False\n        fall_event = False\n        if state['hold_start'] is not None and posture and t - state['hold_start'] >= 3 and not state['fallen']:\n            state['fallen'] = True\n            fall_event = True\n        if hip is not None and torso is not None and torso > 0:\n            state['prev_hip'], state['prev_t'] = hip, t\n        else:\n            state['prev_hip'], state['prev_t'] = None, None\n        status = 'floor_uncalibrated' if state['floor_y'] is None else ('fallen' if state['fallen'] else 'fall_posture_pending' if state['hold_start'] is not None else 'observing')\n        result.append({**person, 'fallen': state['fallen'], 'fall_event': fall_event, 'fall_status': status})\n    return {'frame_index': clock['frame_index'], 'timestamp_s': t, 'persons': result, 'fall_events': [{'id': p['id'], 'timestamp_s': t} for p in result if p['fall_event']]}",
+          "reference_path": null,
+          "runs_every_frame": true,
+          "state_key": "track_id",
+          "triggers": [],
+          "type": "custom"
+        },
+        {
+          "category": "other",
+          "description": "Pixelate detected people before the frame reaches display.",
+          "external_assets": [],
+          "id": 7,
+          "inputs": [
+            "original BGR image",
+            "current-frame person boxes in fall result"
+          ],
+          "name": "People blur",
+          "outputs": [
+            "person-pixelated BGR image"
+          ],
+          "parameters": {
+            "ops": [
+              {
+                "cell": 16,
+                "classes": [
+                  "person"
+                ],
+                "mode": "pixelate",
+                "op": "pixelate_boxes",
+                "region": "person",
+                "source": "human pose estimation@input1"
+              }
+            ]
+          },
+          "placement": {
+            "attach_point": null,
+            "position": "post_tracker"
+          },
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": "BGR",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p07i_frame",
+              "tensor": {
+                "dtype": "uint8",
+                "shape": [
+                  720,
+                  1280,
+                  3
+                ]
+              }
+            },
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p07i_result",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            },
+            {
+              "direction": "output",
+              "format": {
+                "color": "BGR",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p07o_frame",
+              "tensor": {
+                "dtype": "uint8",
+                "shape": [
+                  720,
+                  1280,
+                  3
+                ]
+              }
+            }
+          ],
+          "pseudo_code": "import cv2\nimport numpy as np\nHEAD_SHARE = 0.20\nHEAD_GROW = 0.20\nOPS = ('pixelate_boxes',)\nparams = {'ops': [{'cell': 16, 'classes': ['person'], 'mode': 'pixelate', 'op': 'pixelate_boxes', 'region': 'person', 'source': 'human pose estimation@input1'}]}\ndef _wanted(box, op):\n    classes = [str(c).lower() for c in op.get('classes') or []]\n    label = str(box.get('label') or '').lower()\n    if classes and not any(c == label or c in label for c in classes): return False\n    return not (op.get('source') and box.get('source') and box['source'] != op['source'])\ndef region(box, kind, width, height):\n    x, y, w, h = (float(box[k]) for k in ('left', 'top', 'width', 'height'))\n    if kind == 'head':\n        h = h * HEAD_SHARE\n        x, y, w, h = x - w * HEAD_GROW / 2, y - h * HEAD_GROW / 2, w * (1 + HEAD_GROW), h * (1 + HEAD_GROW)\n    x0, y0 = max(0, int(np.floor(x / 2)) * 2), max(0, int(np.floor(y / 2)) * 2)\n    x1, y1 = min(width, int(np.ceil((x + w) / 2)) * 2), min(height, int(np.ceil((y + h) / 2)) * 2)\n    return (x0, y0, x1, y1) if x1-x0 >= 2 and y1-y0 >= 2 else None\ndef _hide(plane, x0, y0, x1, y1, mode, cell):\n    block = plane[y0:y1, x0:x1]\n    h, w = block.shape[:2]\n    if mode == 'blur':\n        k = max(3, (min(w, h) // 3) | 1)\n        block[...] = cv2.blur(np.ascontiguousarray(block), (k, k))\n        return\n    small = cv2.resize(np.ascontiguousarray(block), (max(1, w // cell), max(1, h // cell)), interpolation=cv2.INTER_AREA)\n    block[...] = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST).reshape(block.shape)\ndef process(frame, result):\n    height, width = frame.shape[:2]\n    planar = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420).reshape(-1)\n    n = height * width\n    y = planar[:n].reshape(height, width).copy()\n    u = planar[n:n+n//4].reshape(height//2, width//2)\n    v = planar[n+n//4:n+n//2].reshape(height//2, width//2)\n    uv = np.stack((u, v), axis=-1).copy()\n    boxes = []\n    for person in result['persons']:\n        x1, y1, x2, y2 = person['box']\n        boxes.append({'left': x1, 'top': y1, 'width': x2-x1, 'height': y2-y1, 'label': person['label'], 'source': person['source']})\n    hidden = 0\n    for op in params.get('ops') or []:\n        if op.get('op') not in OPS: raise ValueError(f\"unknown op {op.get('op')!r}\")\n        kind, mode, cell = op.get('region') or 'person', op.get('mode') or 'pixelate', max(2, int(op.get('cell') or 16))\n        for box in boxes:\n            if not _wanted(box, op): continue\n            area = region(box, kind, width, height)\n            if area is None: continue\n            x0, y0, x1, y1 = area\n            _hide(y, x0, y0, x1, y1, mode, cell)\n            _hide(uv, x0//2, y0//2, x1//2, y1//2, mode, max(1, cell//2))\n            hidden += 1\n    nv12 = np.concatenate((y.reshape(-1), uv.reshape(-1))).reshape(height * 3 // 2, width)\n    return cv2.cvtColor(nv12, cv2.COLOR_YUV2BGR_NV12)",
+          "reference_path": "/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/scene_steps/privacy_blur_bafb9b7122.py",
+          "runs_every_frame": true,
+          "state_key": "none",
+          "triggers": [],
+          "type": "custom"
+        },
+        {
+          "description": "Write timestamped person IDs, boxes and keypoints every frame.",
+          "grid": null,
+          "id": 8,
+          "name": "json",
+          "output_type": "single",
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p08i_result",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import json\nfrom pathlib import Path\npath = Path('/home/dread/pipegen_out/keypoints.jsonl')\npath.parent.mkdir(parents=True, exist_ok=True)\nstream = path.open('w', encoding='utf-8')\ndef process(result):\n    record = {'frame_index': result['frame_index'], 'timestamp_s': result['timestamp_s'], 'persons': [{'id': p['id'], 'box': p['box'], 'keypoints': p['keypoints'], 'score': p['score'], 'fallen': p['fallen'], 'fall_event': p['fall_event'], 'fall_status': p['fall_status']} for p in result['persons']]}\n    stream.write(json.dumps(record, allow_nan=False) + '\\n')\n    stream.flush()\ndef close(): stream.close()",
+          "resolution": null,
+          "type": "output",
+          "url": "file:///home/dread/pipegen_out/keypoints.jsonl"
+        },
+        {
+          "description": "Display privacy-protected video with tracked skeletons and fall status.",
+          "grid": null,
+          "id": 9,
+          "name": "display",
+          "output_type": "single",
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": "BGR",
+                "encoding": "raw"
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p09i_frame",
+              "tensor": {
+                "dtype": "uint8",
+                "shape": [
+                  720,
+                  1280,
+                  3
+                ]
+              }
+            },
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p09i_result",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import cv2\nSKELETON = [(15,13),(13,11),(16,14),(14,12),(11,12),(5,11),(6,12),(5,6),(5,7),(6,8),(7,9),(8,10),(1,2),(0,1),(0,2),(1,3),(2,4),(3,5),(4,6)]\ndef process(pixelated_frame, result):\n    image = pixelated_frame.copy()\n    for person in result['persons']:\n        color = (0,0,255) if person['fallen'] else (0,255,0)\n        x1,y1,x2,y2 = map(int, person['box'])\n        cv2.rectangle(image, (x1,y1), (x2,y2), color, 2)\n        cv2.putText(image, f\"ID {person['id']} {'FALL' if person['fallen'] else person['fall_status']}\", (x1,max(0,y1-8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)\n        k = person['keypoints']\n        for a,b in SKELETON:\n            if k[a][2] >= 0.5 and k[b][2] >= 0.5:\n                cv2.line(image, (int(k[a][0]),int(k[a][1])), (int(k[b][0]),int(k[b][1])), (255,200,0), 2)\n        for x,y,v in k:\n            if v >= 0.5: cv2.circle(image, (int(x),int(y)), 3, (0,165,255), -1)\n    cv2.imshow('Human pose and fall detection', image)\n    cv2.waitKey(1)",
+          "resolution": [
+            1280,
+            720
+          ],
+          "type": "output",
+          "url": null
+        },
+        {
+          "description": "Store per-frame pose results and fall events as JSON.",
+          "grid": null,
+          "id": 10,
+          "name": "json",
+          "output_type": "single",
+          "ports": [
+            {
+              "direction": "input",
+              "format": {
+                "color": null,
+                "encoding": null
+              },
+              "framerate": {
+                "denominator": 25,
+                "numerator": 377
+              },
+              "id": "p10i_result",
+              "tensor": {
+                "dtype": null,
+                "shape": null
+              }
+            }
+          ],
+          "pseudo_code": "import json\nfrom pathlib import Path\npath = Path('/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json')\npath.parent.mkdir(parents=True, exist_ok=True)\nstream = path.open('w', encoding='utf-8')\nstream.write('[')\nfirst = True\ndef process(result):\n    global first\n    if not first: stream.write(',\\n')\n    stream.write(json.dumps(result, allow_nan=False))\n    stream.flush()\n    first = False\ndef close():\n    stream.write(']\\n')\n    stream.close()",
+          "resolution": null,
+          "type": "output",
+          "url": "file:///home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json"
+        }
+      ]
+    },
+    "revision": "516af193f9db15651f266d710954202ee349946d615238bf79fd9a8da4070d2d",
+    "completed_at": 1792079916.4704444,
+    "duration_secs": 200.37,
+    "total_secs": 1242.06
+  },
+  "Model": {
+    "enabled": true,
+    "completed": true,
+    "started_at": 1792079916.4704444,
+    "status": "completed",
+    "log_history": [
+      {
+        "message": "[100%] compatibility analysis complete",
+        "done": false,
+        "live": false,
+        "pct": 100
+      },
+      {
+        "message": "[100%] TensorRT engine \u2014 compiled complete",
+        "done": false,
+        "live": false,
+        "pct": 100
+      },
+      {
+        "message": "[ 85%] reconciling tactics with the layer plan\u2026",
+        "done": false,
+        "live": false,
+        "pct": 85
+      },
+      {
+        "message": "[100%] benchmark complete",
+        "done": true,
+        "live": true,
+        "pct": 100
+      }
+    ],
+    "precision": "fp32",
+    "chat_history": [],
+    "completed_at": 1792080702.6515477,
+    "duration_secs": 786.18,
+    "total_secs": 2028.24
+  },
+  "Compiler": {
+    "enabled": true,
+    "completed": true,
+    "started_at": 1792080702.6515477,
+    "chat_history": [
+      {
+        "type": "buttons",
+        "buttons": {
+          "CompilePipeline": {
+            "enabled": false,
+            "completed": false
+          }
+        }
+      },
+      {
+        "type": "message",
+        "role": "assistant",
+        "text": "**Compile Output:**\n```\njobs=['pose_model', 'render_pose_fall', 'json_keypoints', 'json_metadata']\ncompile=ok  run=ok\n\n[run]\n\n\nPIPELINE READY\nRun with: cd /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/pipeline/deepstream && ./run.sh\n```"
+      },
+      {
+        "type": "buttons",
+        "buttons": {
+          "CompilePipeline": {
+            "enabled": false,
+            "completed": true
+          },
+          "RecompilePipeline": {
+            "enabled": true,
+            "completed": false
+          }
+        }
+      }
+    ],
+    "compile_output": "jobs=['pose_model', 'render_pose_fall', 'json_keypoints', 'json_metadata']\ncompile=ok  run=ok\n\n[run]\n\n\nPIPELINE READY\nRun with: cd /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/pipeline/deepstream && ./run.sh",
+    "llm_summary": "\u2022 The pipeline is a **pose-estimation and fall-detection** type, operating on a single-camera video source (`fall_test.mp4`) configured with `nvstreammux` at a batch size of 1 and a frame resolution of 1280\u00d7720 pixels. The `batched-push-timeout` is set to 40,000 microseconds with `live-source=0`, indicating offline (file-based) inference rather than a live stream.\n\n\u2022 The primary inference shared library is tied to **GIE ID 1** using a custom pose model plugin (`custom-model`), with its TensorRT engine located at `/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/model_stage/yolo11s-pose.fp16.plan`. This plugin handles pose keypoint extraction as the primary GIE (Primary GPU Inference Engine) stage.\n\n\u2022 The **custom render library** `librender_pose_fall_process.so` was generated from `render_pose_fall_process.cpp` and `render_meta.h`, implementing fall-detection logic on top of the pose output. It operates with `operate_on_gie_id=None`, meaning it processes the aggregated metadata rather than attaching to a specific secondary GIE.\n\n\u2022 The **JSON metadata library** `libmeta_json.so` was compiled from `meta_json.cpp`, `frame_json.h`, and `render_meta.h`, and writes inference output to two destinations: `/home/dread/.pipegen/shivohampandeyqai/.../output/metadata.json` and `/home/dread/pipegen_out/keypoints.jsonl`. Both outputs are configured with a minimum confidence threshold of `min_conf=0.0`, meaning all detections are written regardless of score.\n\n\u2022 The model is **YOLO11s-Pose** quantised to **FP16 precision**, as indicated by the engine filename `yolo11s-pose.fp16.plan`. The FP16 TensorRT plan was pre-built and referenced directly rather than compiled during this run; explicit tensor shape details (input/output dimensions) were not printed in the log but the mux resolution of 1280\u00d7720 defines the expected input frame size.\n\n\u2022 Preprocessing is configured via `nvstreammux` with a **width of 1280 and height of 720**, a batch size of 1, and a push timeout of 40,000 \u00b5s for a single camera source. Specific normalisation offsets and per-channel mean subtraction values are expected to reside in `configs/config_pose_pgie.txt`, which was generated as `config_pose_pgie.txt` and inspected during debugging but whose internal values are not explicitly printed in the log.\n\n\u2022 Postprocessing parameters (score threshold, number of classes, top-K, NMS IOU threshold) are encapsulated within `configs/config_pose_pgie.txt` and the render plugin `render_pose_fall_process.cpp`. The `min_conf=0.0` setting in the JSON output stage means no score-based filtering occurs at the serialisation layer; fall-detection logic is applied in the render plugin across the full keypoint output.\n\n\u2022 Configuration artifacts produced include `configs/config_pose_pgie.txt` (PGIE configuration), `run.sh` (main execution script, rewritten twice during debugging), `run.debug.sh` (instrumented debug run script), and `run.vms.sh` (VMS stream script exposing video on port **7010** and metadata on port **7002**). The `render_pose_fall_process.cpp` and associated headers constitute the source artifacts, and `keypoints.jsonl` / `metadata.json` are the runtime output files.\n\n\u2022 The **Makefile** structure operates under the `parsers/` subdirectory and was invoked as `make -B -C parsers` (force rebuild) a total of **four times** across the build-debug cycle. Linked libraries include DeepStream (via GStreamer plugins such as `nvstreammux`, `nvinfer`), CUDA (implied by FP16 TensorRT engine use), and standard system libraries; `yaml-cpp` linkage is not explicitly confirmed in the log but is typical for this pipeline type.\n\n\u2022 A **preflight warning** was raised: `nvcustomprocess custom-lib-path` pointed to `libmeta_json2.so`, which did not exist on disk, causing a `dlopen` failure risk. The built libraries present were `libmeta_json.so` (and a truncated second entry), indicating a stale or incorrectly generated library reference that the debugger subsequently corrected by rewriting `run.sh`.\n\n\u2022 The first automated debug run **failed (attempt 1/4)** due to the missing `libmeta_json2.so` reference identified in the preflight check. The debugger iteratively inspected `run.sh`, the GStreamer pipeline string, input file availability, build artefacts, and the full `render_pose_fall_process.cpp` source (lines 1\u2013682) across multiple tool calls before producing a verified fix after **7 debug steps**.\n\n\u2022 **Compilation completed successfully** after four total make rebuild cycles and two headless instrumented verification runs (each ~8 seconds), with luma-variance content probes confirming valid frame output. The pipeline is executed via `bash run.sh`, and the VMS variant (with streaming endpoints) via `bash run.vms.sh`; the core GStreamer pipeline is launched as `GST_DEBUG=1 gst-launch-1.0 -e nvstreammux name=mux batch-size=1 width=1280 height=720 batched-push-timeout=40000 live-source=0 \u2026`.",
+    "status": "completed",
+    "log_history": [
+      {
+        "step": "compile",
+        "message": "Using v2 LLM-first pipeline compiler",
+        "done": false
+      },
+      {
+        "step": "plan",
+        "message": "orchestrator: planning run.sh + job queue from the PIR",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[planner] valid plan on attempt 1: 4 job(s)",
+        "done": false
+      },
+      {
+        "step": "plan",
+        "message": "plan ready: 4 job(s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[custom-render] render_pose_fall -> librender_pose_fall_process.so (operate_on_gie_id=None)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[custom-model] pose_model gie=1 engine=/home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/model_stage/yolo11s-pose.fp16.plan",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[json] meta_json.cpp + frame_json.h + render_meta.h -> libmeta_json.so (out /home/dread/.pipegen/shivohampandeyqai/32e70e48-2d48-4bd4-93ed-b83081e560fd/output/metadata.json min_conf 0.0)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[json] meta_json.cpp + frame_json.h + render_meta.h -> libmeta_json.so (out /home/dread/pipegen_out/keypoints.jsonl min_conf 0.0)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[custom-model] config_pose_pgie.txt",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[custom-render] render_pose_fall_process.cpp + render_meta.h",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[vms] run.vms.sh written (video :7010 / metadata :7002)",
+        "done": false
+      },
+      {
+        "step": "compile",
+        "message": "compiling parsers and running run.debug.sh (5s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] make -B -C parsers (force rebuild)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] SUCCESS",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[preflight] nvcustomprocess custom-lib-path points at 'libmeta_json2.so', which does not exist (dlopen would fail). Built libraries are: ['libmeta_json.so', 'libmeta_json.s",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug] run.debug.sh FAILED (1/4) \u2014 see debug.log (latest entry: run.debug.sh FAILED (attempt 1/4))",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ cat run.sh",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug] debugger rewrote: ['run.sh']",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] make -B -C parsers (force rebuild)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] SUCCESS",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[verify] headless instrumented run (~8s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ cat run.sh",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ GST_DEBUG=1 timeout 30 gst-launch-1.0 -e nvstreammux name=mux batch-size=1 width=1280 height=720 batched-push-timeout=40000 live-source=0 nv",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ ls -la /home/dread/videos/fall_test.mp4 2>&1 || echo \"INPUT FILE MISSING\"",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ cat configs/config_pose_pgie.txt",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ ls build/",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ GST_DEBUG=1 timeout 20 gst-launch-1.0 -e nvstreammux name=mux batch-size=1 width=1280 height=720 batched-push-timeout=40000 live-source=0 nv",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ GST_DEBUG=1 timeout 20 gst-launch-1.0 -e nvstreammux name=mux batch-size=1 width=1280 height=720 batched-push-timeout=40000 live-source=0 nv",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ sed -n '1,80p' parsers/render_pose_fall_process.cpp",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ sed -n '80,200p' parsers/render_pose_fall_process.cpp",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ sed -n '200,350p' parsers/render_pose_fall_process.cpp",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ sed -n '350,500p' parsers/render_pose_fall_process.cpp",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ sed -n '500,682p' parsers/render_pose_fall_process.cpp",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ cat run.sh",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug-tool] $ GST_DEBUG=1 timeout 30 gst-launch-1.0 -e nvstreammux name=mux batch-size=1 width=1280 height=720 batched-push-timeout=40000 live-source=0 nv",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug] debugger rewrote: ['run.sh']",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] make -B -C parsers (force rebuild)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] SUCCESS",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[verify] headless instrumented run (~8s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[verify] content probe (dump + luma-variance check)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[debug] agentic fix VERIFIED ok after 7 step(s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] make -B -C parsers (force rebuild)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[compile] SUCCESS",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[verify] headless instrumented run (~8s)",
+        "done": false
+      },
+      {
+        "step": "agent",
+        "message": "[verify] content probe (dump + luma-variance check)",
+        "done": true
+      },
+      {
+        "step": "final",
+        "message": "Compilation successful!",
+        "done": true
+      }
+    ],
+    "completed_at": 1792081560.846782,
+    "duration_secs": 858.2,
+    "total_secs": 2886.44
+  },
+  "Run": {
+    "enabled": true,
+    "completed": false,
+    "started_at": 1792081560.846782
+  },
+  "project_name": "Human Pose Tracking and Fall Detection"
+}

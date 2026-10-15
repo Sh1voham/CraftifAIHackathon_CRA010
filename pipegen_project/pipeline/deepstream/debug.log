@@ -1,0 +1,6 @@
+
+==============================================================================
+[2026-10-15T16:21:23+00:00] run.debug.sh FAILED (attempt 1/4)
+------------------------------------------------------------------------------
+pre-flight found 1 problem(s) in the generated pipeline:
+  1. nvcustomprocess custom-lib-path points at 'libmeta_json2.so', which does not exist (dlopen would fail). Built libraries are: ['libmeta_json.so', 'libmeta_json.so.pipegen-cpu-safe', 'librender_pose_fall_process.so', 'librender_pose_fall_process.so.pipegen-cpu-safe', 'libvms_detect.so', 'libvms_detect.so.pipegen-cpu-safe']. Fix run.sh to name one of them.
