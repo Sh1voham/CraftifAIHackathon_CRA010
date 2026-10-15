@@ -9,6 +9,10 @@ The perception pipeline is built, compiled and run in **CraftifAI PipeGen**: vid
 
 SafeStride is a screening aid, not a medical device.
 
+## Demo video
+
+[docs/demo_video.mp4](docs/demo_video.mp4) (78 s): the PipeGen build, the TensorRT report, the live run, then the decision layer raising a fall alert and showing the risk band. It was rebuilt from our screenshots and replay with `python docs/make_demo_video.py`.
+
 ## Running live (PipeGen DeepStream app on the GTX 1650)
 
 The pipeline runs on our recorded clip. It draws the yolo11s-pose skeleton, the person box and the tracker ID ("ID 1 observing"), with the **person blurred** (privacy), at about 19–20 FPS on screen:
