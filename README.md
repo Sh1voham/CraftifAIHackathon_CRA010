@@ -9,6 +9,15 @@ The perception pipeline is built, compiled and run in **CraftifAI PipeGen**: vid
 
 SafeStride is a screening aid, not a medical device.
 
+## Running live (PipeGen DeepStream app on the GTX 1650)
+
+The pipeline runs on our recorded clip. It draws the yolo11s-pose skeleton, the person box and the tracker ID ("ID 1 observing"), with the **person blurred** (privacy), at about 19–20 FPS on screen:
+
+![Pipeline running with pose, tracking and blur](screenshots/19_pipeline_running_pose_tracking_blur.jpeg)
+![Pipeline running, second frame](screenshots/20_pipeline_running_pose_tracking_blur_2.jpeg)
+
+Every step of the PipeGen build (requirement, inputs, flow, model, Pipeline IR, TensorRT reports, run) is in [`screenshots/`](screenshots/), numbered in order.
+
 ## PipeGen pipeline (Pipeline IR node graph)
 
 ![Pipeline IR node graph](docs/images/pipeline_ir_node_graph.png)
