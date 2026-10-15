@@ -3,6 +3,7 @@
     "c_min": 0.3,
     "max_gap_frames": 5,
     "outlier_jump_Ls": 0.5,
+    "frame_dt_window": 15,
     "Lref_window_s": 2.0,
     "one_euro": {
       "min_cutoff": 1.0,
@@ -42,6 +43,65 @@
     "conf_v_scale": 2.0,
     "conf_phi_lo_deg": 30.0,
     "conf_phi_span_deg": 60.0
+  },
+  "gait": {
+    "vx_window_s": 0.5,
+    "steady_min_speed_Ls": 0.3,
+    "steady_speed_cv_max": 0.25,
+    "steady_roll_s": 1.0,
+    "steady_max_phi_deg": 25.0,
+    "steady_max_gap_s": 0.3,
+    "steady_min_len_s": 1.5,
+    "turn_trim_s": 0.3,
+    "peak_min_distance_s": 0.25,
+    "peak_prominence_Ls": 0.1,
+    "peak_fit_half_s": 0.1,
+    "min_steps_per_side": 4,
+    "fallback_torso_m": 0.5,
+    "buffer_s": 60.0,
+    "update_period_s": 2.0
+  },
+  "tug": {
+    "yn_low": 0.1,
+    "yn_high": 0.9,
+    "y_percentile_lo": 2.0,
+    "y_percentile_hi": 98.0,
+    "min_range_Ls": 0.4,
+    "vx_window_s": 0.5,
+    "turn_speed_Ls": 0.2
+  },
+  "risk": {
+    "walk_speed": {
+      "ref": 1.2,
+      "bad": 0.6,
+      "weight": 0.35,
+      "higher_is_worse": false
+    },
+    "symmetry": {
+      "ref": 5.0,
+      "bad": 25.0,
+      "weight": 0.25,
+      "higher_is_worse": true
+    },
+    "step_cv": {
+      "ref": 3.0,
+      "bad": 10.0,
+      "weight": 0.2,
+      "higher_is_worse": true
+    },
+    "tug": {
+      "ref": 8.0,
+      "bad": 16.0,
+      "weight": 0.2,
+      "higher_is_worse": true
+    },
+    "band_moderate": 0.33,
+    "band_high": 0.66,
+    "baseline_beta": 0.2,
+    "drift_ratio": 0.8,
+    "drift_z": -2.0,
+    "drift_min_sessions": 5,
+    "history_max": 20
   },
   "io": {
     "poll_s": 0.05,

@@ -160,14 +160,28 @@ def test_outlier_reanchors_after_persistent_move() -> None:
         p = _body(i / 30)
         if i >= 5:
             x, y, cf = p.kp["l_ankle"]
-            p.kp["l_ankle"] = (x + 200.0, y, cf)  # keypoint genuinely moved elsewhere
+            p.kp["l_ankle"] = (x + 350.0, y, cf)  # 1.75 L: keypoint genuinely moved elsewhere
         items.append((i / 30, p))
     out = _run(c, items)
     xs = [f.get("l_ankle")[0] for f in out]
     flags = [f.get("l_ankle")[3] for f in out]
     assert xs[:5] == pytest.approx([290.0] * 5)
-    assert xs[8:] == pytest.approx([490.0] * 8)  # accepted after max_gap_frames rejections
+    assert xs[8:] == pytest.approx([640.0] * 8)  # accepted after max_gap_frames rejections
     assert flags[5:8] == [True] * 3 and xs[4] < xs[5] < xs[6] < xs[7] < xs[8]  # bridged smoothly
+
+
+def test_outlier_limit_scales_across_dropped_frames() -> None:
+    c = KeypointCleaner(FilterCfg(one_euro=PASS))
+    ts = [i / 30 for i in range(10)] + [12 / 30, 13 / 30, 14 / 30]  # frames 10 and 11 dropped
+    items = []
+    for t in ts:
+        p = _body(t)
+        x, y, cf = p.kp["l_ankle"]
+        p.kp["l_ankle"] = (x + 2400.0 * t, y, cf)  # fast ankle: 0.4 L per frame
+        items.append((t, p))
+    out = _run(c, items)
+    k = out[10].get("l_ankle")  # 1.2 L after a 3-frame gap: plausible, kept
+    assert k[0] == pytest.approx(290.0 + 2400.0 * 12 / 30) and not k[3]
 
 
 def test_smoothing_is_applied_after_repair() -> None:

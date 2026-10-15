@@ -24,10 +24,11 @@ class CleanFrame:
     """One cleaned, smoothed frame for the followed person."""
 
     t: float
-    kp: list[CleanKP | None]  # COCO-17 order
+    kp: list[CleanKP | None]  # COCO-17 order, smoothed
     L_ref: float | None
     bbox: BBox | None
     visible: bool  # a person was selected in this frame
+    raw: list[CleanKP | None] | None = None  # gated, outlier-free, gap-repaired; before smoothing
 
     def get(self, name: str) -> CleanKP | None:
         """Keypoint by canonical name."""
@@ -133,7 +134,11 @@ class KeypointCleaner:
         # outlier state: last accepted raw sample per keypoint and its frame index
         self._acc: list[tuple[float, float] | None] = [None] * N_KP
         self._acc_idx: list[int] = [-1] * N_KP
+        self._acc_t: list[float] = [0.0] * N_KP
         self._rejects: list[int] = [0] * N_KP
+        # recent frame intervals: the outlier limit scales with time since the last accepted sample
+        self._dts: deque[float] = deque(maxlen=cfg.frame_dt_window)
+        self._t_last: float | None = None
         # gap-repair state: last real (non-interpolated) emitted sample per keypoint
         self._prev: list[tuple[int, float, float, float, float] | None] = [None] * N_KP  # idx, t, x, y, c
         self._euro = [(OneEuro(cfg.one_euro), OneEuro(cfg.one_euro)) for _ in range(N_KP)]
@@ -146,26 +151,33 @@ class KeypointCleaner:
             for name, k in person.kp.items():
                 if k[2] >= cfg.c_min:
                     pts[KP_INDEX[name]] = k
+        if self._t_last is not None and t > self._t_last:
+            self._dts.append(t - self._t_last)
+        self._t_last = t
+        dt_med = sorted(self._dts)[len(self._dts) // 2] if self._dts else None
         L_ref = self.ref.update(t, torso_length(pts))
         if L_ref is not None:
-            limit = cfg.outlier_jump_Ls * L_ref
+            base = cfg.outlier_jump_Ls * L_ref  # allowed jump per typical frame interval
             for i in range(N_KP):
                 k = pts[i]
                 if k is None:
                     continue
                 acc = self._acc[i]
                 recent = acc is not None and self._idx - self._acc_idx[i] <= cfg.max_gap_frames + 1
-                if recent and math.hypot(k[0] - acc[0], k[1] - acc[1]) > limit:  # type: ignore[index]
-                    self._rejects[i] += 1
-                    if self._rejects[i] <= cfg.max_gap_frames:
-                        pts[i] = None
-                        continue
-                self._acc[i], self._acc_idx[i], self._rejects[i] = (k[0], k[1]), self._idx, 0
+                if recent:
+                    elapsed = t - self._acc_t[i]
+                    limit = base * max(1.0, elapsed / dt_med) if dt_med else base
+                    if math.hypot(k[0] - acc[0], k[1] - acc[1]) > limit:  # type: ignore[index]
+                        self._rejects[i] += 1
+                        if self._rejects[i] <= cfg.max_gap_frames:
+                            pts[i] = None
+                            continue
+                self._acc[i], self._acc_idx[i], self._acc_t[i], self._rejects[i] = (k[0], k[1]), self._idx, t, 0
         else:
             for i in range(N_KP):
                 k = pts[i]
                 if k is not None:
-                    self._acc[i], self._acc_idx[i] = (k[0], k[1]), self._idx
+                    self._acc[i], self._acc_idx[i], self._acc_t[i] = (k[0], k[1]), self._idx, t
         bbox = person.bbox if person is not None else None
         self._buf.append(_Pending(self._idx, t, pts, L_ref, bbox, person is not None))
         self._idx += 1
@@ -201,6 +213,7 @@ class KeypointCleaner:
 
     def _emit(self, e: _Pending) -> CleanFrame:
         kp: list[CleanKP | None] = [None] * N_KP
+        raw: list[CleanKP | None] = [None] * N_KP
         for i in range(N_KP):
             k = e.pts[i]
             interp = False
@@ -212,5 +225,6 @@ class KeypointCleaner:
             else:
                 self._prev[i] = (e.idx, e.t, k[0], k[1], k[2])
             fx, fy = self._euro[i]
+            raw[i] = (k[0], k[1], k[2], interp)
             kp[i] = (fx(e.t, k[0]), fy(e.t, k[1]), k[2], interp)
-        return CleanFrame(t=e.t, kp=kp, L_ref=e.L_ref, bbox=e.bbox, visible=e.visible)
+        return CleanFrame(t=e.t, kp=kp, L_ref=e.L_ref, bbox=e.bbox, visible=e.visible, raw=raw)

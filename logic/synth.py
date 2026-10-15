@@ -200,25 +200,53 @@ class Gait:
         return self.speed * (self.T_L + self.T_R) / 2.0
 
 
+PEAK_SYM_RAD = 0.6  # phase kept at the mean rate on each side of a step peak
+
+
+def _half_phase(tau: float, T_half: float, T_mean: float) -> float:
+    """Phase advance (0..pi) after ``tau`` s of a half-cycle lasting ``T_half``.
+
+    The first and last PEAK_SYM_RAD radians run at the mean rate, so the
+    ankle-separation curve is time-symmetric around every step peak; the
+    extra or missing time of an asymmetric step goes into mid-swing.
+    """
+    d = PEAK_SYM_RAD
+    edge = d * T_mean / math.pi
+    mid = T_half - 2 * edge
+    if tau < edge:
+        return math.pi * tau / T_mean
+    if tau < edge + mid:
+        return d + (math.pi - 2 * d) * (tau - edge) / mid
+    return math.pi - math.pi * (T_half - tau) / T_mean
+
+
 def gait_phase(g: Gait, t: float) -> float:
     """Phase phi(t): left leads at phi = pi/2 (mod 2pi), right at 3pi/2."""
     cycle = g.T_L + g.T_R
+    T_mean = cycle / 2
     tau = (t + g.phase0) % cycle
     k = math.floor((t + g.phase0) / cycle)
     if tau < g.T_R:
-        return 2 * math.pi * k + math.pi / 2 + math.pi * tau / g.T_R
-    return 2 * math.pi * k + 3 * math.pi / 2 + math.pi * (tau - g.T_R) / g.T_L
+        return 2 * math.pi * k + math.pi / 2 + _half_phase(tau, g.T_R, T_mean)
+    return 2 * math.pi * k + 3 * math.pi / 2 + _half_phase(tau - g.T_R, g.T_L, T_mean)
 
 
 def walk_pose(b: Body, g: Gait, x: float, facing: int, phi: float, amp_scale: float = 1.0) -> Pose:
-    """Side-view walking pose at hip x for gait phase ``phi``."""
+    """Side-view walking pose at hip x for gait phase ``phi``.
+
+    Knee flexion goes as cos^3 of the phase so it vanishes smoothly at the
+    steps (maximum ankle separation) and does not shift the step peaks. The
+    swing thigh flexes forward to compensate, so knee flexion lifts the foot
+    instead of dragging the ankle behind the hip.
+    """
     leg = b.thigh + b.shank + b.ankle_h * 0.5
     A = math.degrees(math.asin(min(g.step_len / (2 * leg), 0.9))) * amp_scale
     s, c = math.sin(phi), math.cos(phi)
     a = A * s
-    return Pose(hx=x, hy=b.stand_hip - 0.03 * abs(s) * amp_scale, theta=4.0, aL=a, aR=-a,
-                kL=45.0 * max(0.0, c) * amp_scale, kR=45.0 * max(0.0, -c) * amp_scale,
-                armL=-15.0 * s * amp_scale, armR=15.0 * s * amp_scale, facing=facing)
+    kL, kR = 45.0 * max(0.0, c) ** 3 * amp_scale, 45.0 * max(0.0, -c) ** 3 * amp_scale
+    comp = (b.shank + b.ankle_h * 0.5) / leg
+    return Pose(hx=x, hy=b.stand_hip - 0.03 * abs(s) * amp_scale, theta=4.0, aL=a + comp * kL, aR=-a + comp * kR,
+                kL=kL, kR=kR, armL=-15.0 * s * amp_scale, armR=15.0 * s * amp_scale, facing=facing)
 
 
 def walking(b: Body, g: Gait, x0: float, facing: int, turn_at: float | None = None, turn_s: float = 1.2

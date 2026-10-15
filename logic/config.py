@@ -31,7 +31,8 @@ class FilterCfg:
 
     c_min: float = 0.30
     max_gap_frames: int = 5
-    outlier_jump_Ls: float = 0.5
+    outlier_jump_Ls: float = 0.5  # per typical frame interval; scales up across dropped frames
+    frame_dt_window: int = 15  # recent frame intervals used to estimate the typical interval
     Lref_window_s: float = 2.0
     one_euro: OneEuroCfg = field(default_factory=OneEuroCfg)
 
@@ -74,6 +75,67 @@ class FallCfg:
     conf_v_scale: float = 2.0  # c_v = v_peak / (conf_v_scale * V_DROP)
     conf_phi_lo_deg: float = 30.0
     conf_phi_span_deg: float = 60.0
+
+
+@dataclass(frozen=True)
+class GaitCfg:
+    """Gait metrics from steady side-on walking."""
+
+    vx_window_s: float = 0.5  # central-difference window for hip horizontal speed
+    steady_min_speed_Ls: float = 0.3  # torso lengths per second
+    steady_speed_cv_max: float = 0.25  # rolling std / mean of hip speed
+    steady_roll_s: float = 1.0
+    steady_max_phi_deg: float = 25.0
+    steady_max_gap_s: float = 0.3  # a longer hole in the data ends a window
+    steady_min_len_s: float = 1.5
+    turn_trim_s: float = 0.3  # trimmed from both ends of each window
+    peak_min_distance_s: float = 0.25
+    peak_prominence_Ls: float = 0.1
+    peak_fit_half_s: float = 0.1  # least-squares parabola around each step peak
+    min_steps_per_side: int = 4
+    fallback_torso_m: float = 0.50  # rough scale when no calibration is given
+    buffer_s: float = 60.0  # live: frames kept for gait analysis
+    update_period_s: float = 2.0  # live: recompute every this many seconds of frame time
+
+
+@dataclass(frozen=True)
+class TugCfg:
+    """Timed Up and Go segmentation."""
+
+    yn_low: float = 0.1
+    yn_high: float = 0.9
+    y_percentile_lo: float = 2.0  # robust standing (min y) and seated (max y) levels
+    y_percentile_hi: float = 98.0
+    min_range_Ls: float = 0.4  # hip must travel at least this far between sitting and standing
+    vx_window_s: float = 0.5
+    turn_speed_Ls: float = 0.2  # hysteresis threshold on hip speed for direction changes
+
+
+@dataclass(frozen=True)
+class RiskMetricCfg:
+    """Sub-score mapping for one metric (illustrative, not clinically validated)."""
+
+    ref: float
+    bad: float
+    weight: float
+    higher_is_worse: bool = True
+
+
+@dataclass(frozen=True)
+class RiskCfg:
+    """Combined fall-risk score and per-person baseline (illustrative design choices)."""
+
+    walk_speed: RiskMetricCfg = field(default_factory=lambda: RiskMetricCfg(1.2, 0.6, 0.35, False))
+    symmetry: RiskMetricCfg = field(default_factory=lambda: RiskMetricCfg(5.0, 25.0, 0.25))
+    step_cv: RiskMetricCfg = field(default_factory=lambda: RiskMetricCfg(3.0, 10.0, 0.20))
+    tug: RiskMetricCfg = field(default_factory=lambda: RiskMetricCfg(8.0, 16.0, 0.20))
+    band_moderate: float = 0.33
+    band_high: float = 0.66
+    baseline_beta: float = 0.2
+    drift_ratio: float = 0.8
+    drift_z: float = -2.0
+    drift_min_sessions: int = 5
+    history_max: int = 20
 
 
 @dataclass(frozen=True)
@@ -128,6 +190,9 @@ class Config:
     filters: FilterCfg = field(default_factory=FilterCfg)
     features: FeatureCfg = field(default_factory=FeatureCfg)
     fall: FallCfg = field(default_factory=FallCfg)
+    gait: GaitCfg = field(default_factory=GaitCfg)
+    tug: TugCfg = field(default_factory=TugCfg)
+    risk: RiskCfg = field(default_factory=RiskCfg)
     io: IoCfg = field(default_factory=IoCfg)
     mqtt: MqttCfg = field(default_factory=MqttCfg)
     privacy: PrivacyCfg = field(default_factory=PrivacyCfg)
